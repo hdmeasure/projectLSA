@@ -10,7 +10,7 @@ This file records package-level imports for roxygen2 so that NAMESPACE
 will include the appropriate import directives.
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com}
+\strong{Maintainer}: Hasan Djidu \email{hasandjidu@gmail.com}
 
 }
 \keyword{internal}

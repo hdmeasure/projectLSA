@@ -4,7 +4,7 @@
 \alias{run_projectLSA}
 \title{Launch the projectLSA Shiny Application}
 \usage{
-run_app()
+run_projectLSA()
 }
 \value{
 Launches the Shiny application in the default web browser.

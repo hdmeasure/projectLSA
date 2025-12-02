@@ -78,7 +78,9 @@ server_lpa <- function(input, output, session) {
     req(data_user())
     df <- data_user() %>% 
       dplyr::select(input$selected_vars)
-    numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
+    #numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
+    numeric_cols <- which(vapply(df, function(x) is.numeric(x) && length(x) > 0, logical(1)))
+
     datatable(df,
               extensions = 'Buttons',
               options = list(dom='Brtp',scrollX = TRUE, pageLength = 25,  

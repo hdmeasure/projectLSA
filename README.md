@@ -82,8 +82,7 @@ upload, built-in datasets, interactive plots, and reporting features.
 ## Example Screenshots
 
  <img src="man/figures/lpa_example.png" align="center" width="120" />
-
-    ![LPA interface](man/figures/lpa_example.png)
+ <img src="man/figures/lpa_example2.png" align="center" width="120" />
 
 ------------------------------------------------------------------------
 

@@ -78,7 +78,7 @@ server_lpa <- function(input, output, session) {
     req(data_user())
     df <- data_user() %>% 
       dplyr::select(input$selected_vars)
-    #numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
+    numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
     #numeric_cols <- which(vapply(df, function(x) is.numeric(x) && length(x) > 0, logical(1)))
 
 #    datatable(df,
@@ -95,7 +95,7 @@ server_lpa <- function(input, output, session) {
            #                    ))),
    #   rownames = T) %>% 
     #  formatRound(columns = numeric_cols, digits = 2)
-  numeric_cols <- which(vapply(df, is.numeric, logical(1)))
+  #numeric_cols <- which(vapply(df, is.numeric, logical(1)))
 
 dt <- datatable(
   df,

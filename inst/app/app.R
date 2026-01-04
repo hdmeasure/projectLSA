@@ -35,6 +35,8 @@ library(ggplot2)
 library(stringr)
 #library(tidyverse)
 library(plotly)
+library(tidyr)
+
 
 
 # ===== UI =====

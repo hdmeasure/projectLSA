@@ -9,3 +9,5 @@ inst/doc
 .quarto
 docs
 .Rapp.history
+*.dat
+*.inp

@@ -6,7 +6,7 @@ server_lpa <- function(input, output, session) {
   # --- Upload data ----
   data_user <- reactive({
     if (input$data_source == "pisaUSA15") {
-      df <- tidyLPA::pisaUSA15%>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      df <- tidyLPA::pisaUSA15[1:500,]%>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
     } else if (input$data_source == "curry_mac") {
       df <- tidyLPA::curry_mac %>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
       
@@ -102,30 +102,30 @@ server_lpa <- function(input, output, session) {
   })
   fitcompare <- eventReactive(input$run_lpa, {
     req(data_user(), input$selected_vars)
+    showModal(modalDialog(title = NULL, "Please wait, running LPA...", footer = NULL, easyClose = FALSE))
     df <- data_user() %>% dplyr::select(input$selected_vars)
     df <- df %>% mutate(across(everything(), as.numeric))
     min_k <- input$min_profiles
     max_k <- input$max_profiles
-    model_type <- input$model_type
-    variances <- ifelse(input$model_type %in% c(1, 3), "equal", "varying")
-    covariances <- ifelse(input$model_type %in% c(1,2), "zero",
-                          ifelse(input$model_type %in% c(3), "equal", "varying"))
     withProgress(message = "Running...", {
       incProgress(1/(max_k-min_k+1), detail = paste("Compare LPA results"))
       fitcompare <- tidyLPA::estimate_profiles(df, n_profiles = min_k:max_k,
-                                               variances=variances,
-                                               covariances=covariances
+                                               # variances=variances,
+                                               # covariances=covariances
                                                #models = c(1, 2, 3, 6)
+                                               variances = c("equal", "varying","equal", "varying"),
+                                               covariances = c("zero", "zero","equal", "varying")
       ) %>%
         get_fit()
       fitcompare <- as.data.frame(fitcompare) %>% dplyr::rename(n_profiles=Classes)
+      removeModal()
       showNotification("LPA completed successfully!", type = "message")
     })
     fitcompare
   })
   
-  models <- eventReactive(c(input$run_lpa,input$best_k), {
-    req(data_user(), input$selected_vars, input$best_k)
+  models <- eventReactive(c(input$best_k, input$model_type), {
+    req(data_user(), fitcompare(),input$selected_vars, input$best_k)
     df <- data_user()[, input$selected_vars]
     df <- df %>% mutate(across(everything(), as.numeric))
     min_k <- input$min_profiles
@@ -136,11 +136,17 @@ server_lpa <- function(input, output, session) {
                           ifelse(input$model_type %in% c(3), "equal", "varying"))
     model_list <- list()
     for (k in input$best_k) {
+      withProgress(message = "Running...", {
+      incProgress(1/(max_k-min_k+1), detail = paste("Estimate LPA Model for ", k, " Profiles"))
       model_list[[as.character(k)]] <- estimate_profiles(df, n_profiles = k,
                                                          variances = variances,
-                                                         covariances = covariances)
+                                                         covariances = covariances
+                                                         )
+      showNotification("Estimation completed successfully!", type = "message")
+      })
     }
     model_list
+   
   })
   
   # --- Fit table ----
@@ -148,14 +154,15 @@ server_lpa <- function(input, output, session) {
     req(fitcompare())
     fitcompare <- fitcompare() %>%
       dplyr::mutate(across(where(is.numeric), ~round(.x, 4))) %>%
-      dplyr::select(-c(prob_min, prob_max,n_max, AWE, CAIC, CLC, KIC, SABIC, ICL))
-    
+      dplyr::select(-c(AWE, CAIC, CLC, KIC, SABIC, ICL))
+    prob_min_vals <- sort(unique(fitcompare$prob_min), decreasing = TRUE)
+    prob_max_vals <- sort(unique(fitcompare$prob_max),decreasing = TRUE)
     aic_vals <- sort(unique(fitcompare$AIC))
     bic_vals <- sort(unique(fitcompare$BIC))
     ent_vals <- sort(unique(fitcompare$Entropy), decreasing = TRUE)
     
     datatable(fitcompare, extensions = 'Buttons',
-              options = list(dom='B', scrollX = TRUE,
+              options = list(dom='B', scrollX = TRUE, pageLength = 40,
                              buttons = list(
                                list(extend='csv', text='Export CSV', filename='FIT Comparison LPA'),
                                list(extend='excel', text='Export Excel', filename='FIT Comparison LPA')
@@ -182,9 +189,25 @@ server_lpa <- function(input, output, session) {
                   ),
                   fontWeight = styleEqual(ent_vals[1], 'bold')
       ) %>%
-      formatStyle('n_min',
-                  backgroundColor = styleInterval(0.07, c('lightcoral', 'lightgreen'))
+      formatStyle('prob_min',
+                  backgroundColor = styleEqual(
+                    c(prob_min_vals[1], prob_min_vals[2]),
+                    c('lightgreen', 'khaki')
+                  ),
+                  fontWeight = styleEqual(ent_vals[1], 'bold')
       ) %>%
+      formatStyle('prob_max',
+                  backgroundColor = styleEqual(
+                    c(prob_max_vals[1], prob_max_vals[2]),
+                    c('lightgreen', 'khaki')
+                  ),
+                  fontWeight = styleEqual(ent_vals[1], 'bold')
+      ) %>%
+      formatStyle('n_min',
+                  backgroundColor = styleInterval(
+                    c(0.05, 0.07),
+                    c('lightcoral', 'khaki', 'lightgreen'))
+                  ) %>%
       formatStyle('BLRT_p',
                   backgroundColor = styleInterval(0.05, c('lightgreen', 'lightcoral')),
                   fontWeight = styleInterval(0.05, c('bold', ''))
@@ -193,66 +216,128 @@ server_lpa <- function(input, output, session) {
   
   
   # --- Fit plot (AIC/BIC) ---
-  fit_plot_reactive <- reactive({
-    # req(models())
+  # fit_plot_reactive <- reactive({
+  #   req(fitcompare())
+  #   fitcompare <- fitcompare() %>%
+  #     dplyr::select(n_profiles, AIC, BIC) %>% dplyr::mutate(n_profiles = as.numeric(n_profiles))
+  #   fit_long <- fitcompare %>%
+  #     pivot_longer(-n_profiles, names_to = "Index", values_to = "Value")
+  #   
+  #   ggplot(fit_long, aes(x = n_profiles, y = Value, color = Index, group = Index)) +
+  #     geom_line(size = 1.2) + geom_point(size = 3) +
+  #     geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3) +
+  #     labs(title = "Model Comparison (AIC & BIC)", x = "Number of Profiles", y = "Fit Index") +
+  #     theme_minimal(base_size = 14) +
+  #     theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  # })
+  # --- Entropy plot ---
+  # entropy_plot_reactive <- reactive({
+  #   # req(models())
+  #   req(fitcompare())
+  #   
+  #   stats <- fitcompare() %>%
+  #     dplyr::select(n_profiles, Entropy, n_min) %>% dplyr::mutate(n_profiles = as.numeric(n_profiles))
+  #   # stats <- map_df(models(), get_fit, .id = "n_profiles")
+  #   ggplot(stats, aes(x = as.numeric(n_profiles))) +
+  #     geom_line(aes(y = Entropy, color = "Entropy"), size = 1.2) +
+  #     geom_point(aes(y = Entropy, color = "Entropy"), size = 3) +
+  #     geom_text(aes(y = Entropy, label = round(Entropy, 3)), vjust = -0.8, size = 3.5) +
+  #     geom_line(aes(y = n_min, color = "Smallest Class Size"), size = 1.2) +
+  #     geom_point(aes(y = n_min, color = "Smallest Class Size"), size = 3) +
+  #     geom_text(aes(y = n_min, label = round(n_min, 3)), vjust = -0.8, size = 3.5) +
+  #     labs(title = "Entropy and Smallest Class Size per Model", x = "Number of Profiles", y = "Value") +
+  #     theme_minimal(base_size = 14) +
+  #     theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  #   
+  # })
+  
+  fit_bic_reactive <- reactive({
     req(fitcompare())
+    fit_bic <- fitcompare() %>%
+      dplyr::select(Model, n_profiles, BIC) %>%
+      dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    # fit_stats <- map_df(models(), get_fit, .id = "n_profiles") %>%
-    #   dplyr::select(n_profiles, AIC, BIC) %>% dplyr::mutate(n_profiles = as.numeric(n_profiles))
-    fitcompare <- fitcompare() %>%
-      dplyr::select(n_profiles, AIC, BIC) %>% dplyr::mutate(n_profiles = as.numeric(n_profiles))
-    fit_long <- fitcompare %>%
-      pivot_longer(-n_profiles, names_to = "Index", values_to = "Value")
-    
-    ggplot(fit_long, aes(x = n_profiles, y = Value, color = Index, group = Index)) +
-      geom_line(size = 1.2) + geom_point(size = 3) +
-      geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3) +
-      labs(title = "Model Comparison (AIC & BIC)", x = "Number of Profiles", y = "Fit Index") +
+    ggplot(fit_bic, aes(n_profiles, BIC, group = Model, shape = Model, color = Model)) +
+      geom_line(size = 1.2, linetype = 4) + geom_point(size = 3) +
+      geom_text(aes(label = round(BIC, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
+      labs(title = "BIC Comparison Across Models", x = "Number of Profiles", y = "BIC") +
       theme_minimal(base_size = 14) +
       theme(legend.position = "bottom", axis.line = element_line(color = "black"))
   })
   
-  # --- Entropy plot ---
-  entropy_plot_reactive <- reactive({
-    # req(models())
+  fit_aic_reactive <- reactive({
     req(fitcompare())
+    fit_aic <- fitcompare() %>%
+      dplyr::select(Model, n_profiles, AIC) %>%
+      dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    stats <- fitcompare() %>%
-      dplyr::select(n_profiles, Entropy, n_min) %>% dplyr::mutate(n_profiles = as.numeric(n_profiles))
-    # stats <- map_df(models(), get_fit, .id = "n_profiles")
-    ggplot(stats, aes(x = as.numeric(n_profiles))) +
-      geom_line(aes(y = Entropy, color = "Entropy"), size = 1.2) +
-      geom_point(aes(y = Entropy, color = "Entropy"), size = 3) +
-      geom_text(aes(y = Entropy, label = round(Entropy, 3)), vjust = -0.8, size = 3.5) +
-      geom_line(aes(y = n_min, color = "Smallest Class Size"), size = 1.2) +
-      geom_point(aes(y = n_min, color = "Smallest Class Size"), size = 3) +
-      geom_text(aes(y = n_min, label = round(n_min, 3)), vjust = -0.8, size = 3.5) +
-      labs(title = "Entropy and Smallest Class Size per Model", x = "Number of Profiles", y = "Value") +
+    ggplot(fit_aic, aes(n_profiles, AIC, group = Model, shape = Model, color = Model)) +
+      geom_line(size = 1.2, linetype = 5) + geom_point(size = 3) +
+      geom_text(aes(label = round(AIC, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
+      labs(title = "AIC Comparison Across Models", x = "Number of Profiles", y = "AIC") +
       theme_minimal(base_size = 14) +
       theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  })
+  
+  fit_entropy_reactive <- reactive({
+    req(fitcompare())
+    fit_entropy <- fitcompare() %>%
+      dplyr::select(Model, n_profiles, Entropy) %>%
+      dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
+    ggplot(fit_entropy, aes(n_profiles, Entropy, group = Model, shape = Model,color = Model)) +
+      geom_line(size = 1.2, linetype = 2) + geom_point(size = 3) +
+      geom_text(aes(label = round(Entropy, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
+      labs(title = "Entropy Comparison Across Models", x = "Number of Profiles", y = "Entropy") +
+      theme_minimal(base_size = 14) +
+      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  })
+  
+  fit_class_size_reactive <- reactive({
+    req(fitcompare())
+    fit_class_size <- fitcompare() %>%
+      dplyr::select(Model, n_profiles, n_min) %>%
+      dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
+    
+    ggplot(fit_class_size, aes(n_profiles, n_min, group = Model, shape = Model, color = Model)) +
+      geom_line(size = 1.2, linetype = 1) + geom_point(size = 4) +
+      geom_text(aes(label = round(n_min, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
+      labs(title = "Minimum Class Size Comparison Across Models", x = "Number of Profiles", y = "Minimum Class Size") +
+      theme_minimal(base_size = 14) +
+      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
   })
   
   # ==== Render Plot ====
-  output$fit_plot <- renderPlot({
-    fit_plot_reactive()
-  })
+  # output$fit_plot <- renderPlot({
+  #   fit_plot_reactive()
+  # })
+  # output$entropy_plot <- renderPlot({
+  #   entropy_plot_reactive()
+  # })
   
-  output$entropy_plot <- renderPlot({
-    entropy_plot_reactive()
+  output$fit_bic <- renderPlot({
+    fit_bic_reactive()
   })
-  
+  output$fit_aic <- renderPlot({
+    fit_aic_reactive()
+  })
+  output$fit_entropy <- renderPlot({
+    fit_entropy_reactive()
+  })
+  output$fit_class_size <- renderPlot({
+    fit_class_size_reactive()
+  })
+
   # ==== Download Buttons ====
-  output$download_plot_AicBic_LPA <- make_download_plot(
-    plot_reactive = fit_plot_reactive,
-    filename_prefix = "Fit AIC BIC Plot_LPA"
-  )
-  
-  output$download_plot_entropy_LPA <- make_download_plot(
-    plot_reactive = entropy_plot_reactive,
-    filename_prefix = "EntropyPlot_LPA"
-  )
-  
+  # output$download_plot_AicBic_LPA <- make_download_plot(
+  #   plot_reactive = fit_plot_reactive,
+  #   filename_prefix = "Fit AIC BIC Plot_LPA"
+  # )
+  # 
+  # output$download_plot_entropy_LPA <- make_download_plot(
+  #   plot_reactive = entropy_plot_reactive,
+  #   filename_prefix = "EntropyPlot_LPA"
+  # )
   # --- Input nama profil ---
   output$profile_name_inputs <- renderUI({
     req(input$best_k)
@@ -260,7 +345,6 @@ server_lpa <- function(input, output, session) {
       textInput(paste0("profile_name_", i), paste("Profile", i, "Name:"), value = paste("Profile", i))
     })
   })
-  
   # --- Best model plot + summary ---
   best_model_plot_reactive <- reactive({
     req(models(), input$best_k, input$selected_vars)
@@ -283,8 +367,8 @@ server_lpa <- function(input, output, session) {
                              color = Profile, linetype = Profile, shape = Profile)) +
       geom_line(size = 1.2) +
       geom_point(size = 3) +
-      geom_text(aes(label = round(Mean, 2)), vjust = -0.7, size = 4.5) +
-      labs(title = paste0("Best Plot LPA for ", k, " Profiles"), x = "Variable", y = "Mean Score", color = "Profile") +
+      geom_text(aes(label = round(Mean, 2)), vjust = -0.7, size = 4.5, show.legend = FALSE) +
+      labs(title = paste0("Profile Plot for ", k, " Profiles"), x = "Variable", y = "Mean Score") +
       theme_minimal(base_size = 14) +
       theme(legend.position = "bottom", axis.line = element_line(color = "black"))
   })

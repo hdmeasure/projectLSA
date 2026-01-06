@@ -32,19 +32,6 @@ lpa_ui <- function(project) {
           #fileInput("datafile", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx")),
           uiOutput("id_select_ui"),
           uiOutput("var_select_ui"),
-          
-          selectInput(
-            "model_type", 
-            "Select Model Type:",
-            choices = list(
-              "Model 1: Equal variances, covariances fixed to 0" = 1,
-              "Model 2: Varying variances, covariances fixed to 0" = 2,
-              "Model 3: Equal variances & covariances" = 3,
-              "Model 6: Varying variances & covariances" = 6
-            ),
-            selected = 1
-          ),
-          
           numericInput("min_profiles", "Min Number of Profiles:", 2, min = 1),
           numericInput("max_profiles", "Max. Number of Profiles:", 10, min = 2),
           
@@ -80,17 +67,41 @@ lpa_ui <- function(project) {
             style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
             
             column(12, h5(icon("info-circle"), "Model Fit Statistics"), 
-                   DTOutput("fit_table")
+                   DTOutput("fit_table")#,
+                   # tags$div(
+                   #   style = "margin-top: 0px; font-size: 12px; color: #6c757d;",
+                   #   tags$b("Note:"),
+                   #   tags$ul(
+                   #     tags$li(tags$span(style = "color: blue;", "BIC:"),"Bayesian information criterion"),
+                   #     tags$li(tags$span(style = "color: blue;", "AIC:"),"Aikake information criterion"),
+                   #     tags$li(tags$span(style = "color: blue;", "Entropy:"),"A measure of classification uncertainty (1 = complete certainty; 0 = complete uncertainty)"),
+                   #     tags$li(tags$span(style = "color: blue;", "prob_min:"),"Minimum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class"),
+                   #     tags$li(tags$span(style = "color: blue;", "prob_max:"),"Maximum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class"),
+                   #     tags$li(tags$span(style = "color: blue;", "n_min:"),"Proportion of the sample assigned to the smallest class"),
+                   #     tags$li(tags$span(style = "color: blue;", "n_max:"),"Proportion of the sample assigned to the largest class"),
+                   #     tags$li(tags$span(style = "color: blue;", "BLRT:"),"Bootstrapped likelihood test"),
+                   #   )
+                   # )
                    )
         )),
         br(),
-        column(6, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
-               downloadButton("download_plot_AicBic_LPA", "Download Plot AIC/BIC (.png)",),
-               plotOutput("fit_plot")),
-        column(6, h5(icon("sliders-h"), "Entropy & Smallest Class Size"), 
-               downloadButton("download_plot_entropy_LPA", "Download Plot Entropy & Class Size (.png)"),
-               plotOutput("entropy_plot")
-               )
+        # column(6, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
+        #        downloadButton("download_plot_AicBic_LPA", "Download Plot AIC/BIC (.png)",),
+        #        plotOutput("fit_plot")),
+        # 
+        # 
+        # column(6, h5(icon("sliders-h"), "Entropy & Smallest Class Size"), 
+        #        downloadButton("download_plot_entropy_LPA", "Download Plot Entropy & Class Size (.png)"),
+        #        plotOutput("entropy_plot")
+        #        ),
+      column(6, h5(icon("chart-bar"), "BIC Comparison"), 
+             plotOutput("fit_bic"), height = "200px"),
+      column(6, h5(icon("chart-bar"), "AIC Comparison"), 
+             plotOutput("fit_aic"),height = "200px"),
+      column(6, h5(icon("chart-bar"), "Entropy Comparison"), 
+             plotOutput("fit_entropy"),height = "200px"),
+      column(6, h5(icon("chart-bar"), "Class Size Comparison"), 
+             plotOutput("fit_class_size"),height = "200px")
       )
     ),
     
@@ -99,14 +110,25 @@ lpa_ui <- function(project) {
       title = tagList(icon("star"), "Best Model"),
       sidebarLayout(
         sidebarPanel(
-          width = 2, 
+          width = 3, 
+          selectInput(
+            "model_type", 
+            "Select Model Type:",
+            choices = list(
+              "Model 1: Equal variances, covariances fixed to 0" = 1,
+              "Model 2: Varying variances, covariances fixed to 0" = 2,
+              "Model 3: Equal variances & covariances" = 3,
+              "Model 6: Varying variances & covariances" = 6
+            ),
+            selected = 1
+          ),
           numericInput("best_k", label = "Select the Best Number of Profiles:",value = 3, min = 1),
           uiOutput("profile_name_inputs")
         ),
         mainPanel(
-          width = 10, 
+          width = 9, 
           br(),
-          
+    
           h5(icon("project-diagram"), "Profile Plot of the Best Model"),
           downloadButton("download_plot_best_LPA", "Download Plot Best Model (.png)"),
           plotOutput("best_model_plot", height = "450px"),

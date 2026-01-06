@@ -41,6 +41,7 @@ Imports:
     ggiraph,
     ggplot2,
     lavaan,
+    mclust,
     mirt,
     plotly,
     poLCA,

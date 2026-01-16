@@ -36,7 +36,7 @@ Depends:
 Encoding: UTF-8
 Imports:
     colourpicker,
-    data.table
+    data.table,
     dplyr,
     DT,
     ggiraph,

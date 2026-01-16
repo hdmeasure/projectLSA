@@ -36,6 +36,7 @@ library(stringr)
 library(tidyverse)
 library(plotly)
 library(tidyr)
+options(shiny.maxRequestSize = 300 * 1024^2)  # 300 MB
 
 # ===== UI =====
 ui <- fluidPage(
@@ -90,7 +91,7 @@ server <- function(input, output, session) {
     })
     # LCA
     output$package_references_lca <- renderUI({
-      render_package_refs(c("shiny", "tidyverse", "poLCA", "DT", "readxl", "dplyr","ggplot2", "ggiraph"))
+      render_package_refs(c("shiny", "tidyverse", "poLCA","glca", "DT", "readxl", "dplyr","ggplot2", "ggiraph"))
     })
     # LTA / IRT
     output$package_references_lta <- renderUI({

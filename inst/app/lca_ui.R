@@ -18,13 +18,10 @@ lca_ui <- function(project) {
             "data_source_lca", 
             "Select Data Source:",
             choices = c("Upload Data" = "upload",
-                        "Simulation Data 1" = "simdata3class",
-                        "Simulation Data 2" = "simdata4class",
-                        "Simulation Data 3" = "simdata5class",
-                        "Simulation Data 4" = "simdata6class",
-                        "Simulation Data 5" = "simdata7class"
-                        
-                        ),
+                        "Cheating (Dayton, 1998)" = "cheat",
+                        "Lazarsfeld & Henry (1968)" = "lazar",
+                        "General Social Survey (McCutcheon, 1987)" = "gss82"
+            ),
             selected = "upload"
           ),
           conditionalPanel(
@@ -33,9 +30,9 @@ lca_ui <- function(project) {
           ),
           uiOutput("id_select_ui_lca"),
           uiOutput("var_select_ui_lca"),
-          
-          numericInput("min_class_lca", "Min. Number of Class:", 2, min = 1),
-          numericInput("max_class_lca", "Max. Number of Class:", 9, min = 2),
+          numericInput("min_class_lca", "Min. Number of Class:", 1, min = 1),
+          numericInput("max_class_lca", "Max. Number of Class:", 6, min = 3),
+          uiOutput("cov_lca_ui"),
           
           br(),
           
@@ -48,7 +45,11 @@ lca_ui <- function(project) {
           width = 9,
           h5(icon("table"), "Data Preview"),
           DTOutput("data_preview_lca"),
-          DTOutput("data_summary_lca")
+          DTOutput("data_summary_lca"),
+          br(),
+          uiOutput("data_description"),
+          
+          br(),
           
           
         )
@@ -58,28 +59,53 @@ lca_ui <- function(project) {
     # --- TAB 2: Fit Model Comparison ----
     tabPanel(
       title = tagList(icon("chart-line"), "Fit Model Comparison"),
-      value = "fit_tab_lca",  # <--- tambahkan ini juga
+      value = "fit_tab_lca",  
       
       fluidRow(
         column(12,
                div(
-                 style = "text-align:center;",  # pusatkan kontainer
+                 style = "text-align:center;",  
                  div(
                    style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
                    h5(icon("info-circle"), "Model Fit Statistics"), 
                    DTOutput("fit_table_lca")
                  )
+               ),
+               tags$div(
+                 style = "margin-top: 0px; font-size: 12px; color: #6c757d;",
+                 tags$b("Note:"),
+                 tags$ul(
+                   tags$li(tags$span(style = "color: blue;", "AIC:"), 
+                           "Akaike Information Criterion; smaller values indicate better model fit."),
+                   tags$li(tags$span(style = "color: blue;", "BIC:"), 
+                           "Bayesian Information Criterion; smaller values indicate better and more parsimonious model fit."),
+                   tags$li(tags$span(style = "color: blue;", "Entropy:"), 
+                           "A measure of classification quality (values closer to 1 indicate clearer class separation)."),
+                   tags$li(tags$span(style = "color: blue;", "Gsq:"), 
+                           "Likelihood ratio statistic (G²) for assessing absolute model fit."),
+                   tags$li(tags$span(style = "color: blue;", "p_Gsq:"), 
+                           HTML("Bootstrap p-value for G². <b>H₀:</b> the model with K classes adequately fits the data. p ≥ 0.05 indicates acceptable absolute fit.")
+                   ),
+                   tags$li(tags$span(style = "color: blue;", "Deviance:"), 
+                           "Deviance statistic comparing two nested models with K and K+1 classes."),
+                   tags$li(tags$span(style = "color: blue;", "p_Deviance:"), 
+                           HTML("Bootstrap p-value from the deviance test reported for the <b>K-class model</b>. 
+     <b>H₀:</b> the (K−1)-class model is not significantly worse than the K-class model. 
+     p < 0.05 indicates that adding one class (from K−1 to K) significantly improves model fit.")
+                   ),
+                   tags$li(tags$span(style = "color: blue;", "Av_Prob:"), 
+                           "Average posterior classification probability by class, indicating classification accuracy.")
+                 )
                )
-               
         ),
-        column(5, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
+        column(6, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
                downloadButton("download_plot_AicBic_LCA", "Download Plot AIC/BIC (.png)"),
                plotOutput("fit_plot_lca")
                ),
-        column(7, h5(icon("sliders-h"), "Min Class Size Comparison"), 
-               downloadButton("download_plot_classSize_LCA", "Download PLot Smallest Class Size (.png)"),
-               plotOutput("smallest_class_plot_lca",width = '100%')
-               )
+        column(6, h5(icon("chart-bar"), "Entropy & Average Posterior Probability Comparison"), 
+               downloadButton("download_plot_entropy", "Download Plot Entropy & Av.Probs (.png)"),
+               plotOutput("entropy_plot_lca")
+        ), br(), br(),
       )
     ),
     
@@ -96,11 +122,15 @@ lca_ui <- function(project) {
           width = 10, 
           h5(icon("project-diagram"), "Class Plot of the Best Model"),
           downloadButton("download_plot_best_LCA", "Download Plot Best Model (.png)"),
+          tags$b("Item-Categories Probabilities Plot"),
           ggiraph::girafeOutput("best_model_plot_lca", width = '100%', height = 'auto'),
           h5(icon("table"), "Class Size and Item-Category Probabilities"),
           tableOutput("summary_table_lca"),
-         
-          br()
+          h5(icon("table"), "Latent Class Response Patterns"),
+          DT::DTOutput("data_summary_lca_with_class"),
+          br(),
+          br(),
+          
         )
       )
     ),
@@ -108,10 +138,47 @@ lca_ui <- function(project) {
     # --- TAB 4: Summary & Report ----
     tabPanel(
       title = tagList(icon("file-alt"), "Summary & Report"),
-      tags$b("Class Classification Data"),
-      DTOutput("profile_table_lca")
+      h4("Class Classification Data"),
+      DTOutput("profile_table_lca"),
+      h4("Compare Class"),
+      column(12,
+        column(3, uiOutput("var_x_ui")),
+        column(4, uiOutput("var_y_ui")),
+        column(2,
+               selectInput(
+                 "plot_type", "Plot Type:",
+                 choices = c("Line" = "line", "Bar" = "bar"),
+                 selected = "bar"
+               )
+        ),
+        column(3,
+               checkboxInput(
+                 "check_anova",
+                 label = "Compare Classes",
+                 value = FALSE
+               )
+        )
       ),
-    
+      br(),
+
+      column(12,
+        column(6, plotOutput("cross_latent", height = "420px")),
+        column(6, uiOutput("anova_lca_ui"))
+      ),
+      column(12, uiOutput("reg_lca_ui")),
+      column(12,
+             h4("Explore Other Variables by Class"),
+             checkboxInput(
+               "crosstab_result",
+               label = "Explore variable",
+               value = FALSE
+             ),
+             column(12, uiOutput("crosstab_ui")),
+             br(),
+             br(),
+             br()
+      ) 
+    ),
     # --- TAB 5: About ----
     tabPanel(
       title = tagList(icon("info-circle"), "About"),

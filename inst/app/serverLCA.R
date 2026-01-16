@@ -3,60 +3,120 @@ server_lca <- function(input, output, session) {
   library(poLCA)
   library(tidyverse)
   library(ggiraph)
+  library(data.table)
+  library(glca)
+  library(stats)
+  library(haven)
+  
   best_c_r <- reactiveVal(NULL)
   set.seed(100)
 observeEvent(input$run_lca, {
   req(data_lca(), input$vars_lca)
   updateTabsetPanel(session, "main_tab_lca", selected = "fit_tab_lca")
 })
-data_lca <- reactive({
-  if (input$data_source_lca == "simdata3class") {
-    df <- get("cheating", envir = asNamespace("poLCA")) %>% rownames_to_column("id_auto")
-    
-  } else if (input$data_source_lca == "simdata4class") {
-    df <- poLCA::poLCA.simdata(N=3000, nclass=3,ndv=5)$dat%>% rownames_to_column("id_auto")
-    
-  } else if(input$data_source_lca == "simdata5class") {
-    df <- poLCA::poLCA.simdata(N=4000, nclass=4,ndv=5)$dat%>% rownames_to_column("id_auto")
-    
-  } else if (input$data_source_lca == "simdata6class") {
-    df <- poLCA::poLCA.simdata(N=5000, nclass=4,ndv=6)$dat%>% rownames_to_column("id_auto")
-    
-  } else if (input$data_source_lca == "simdata7class") {
-    df <- poLCA::poLCA.simdata(N=6000, nclass=4,ndv=7)$dat%>% rownames_to_column("id_auto")
+data_source <- reactive({
+  if (input$data_source_lca == "cheat") {
+    data("cheating", package = "poLCA")
+    df <- cheating %>% rownames_to_column("id_auto") 
+  } else if (input$data_source_lca == "lazar") {
+    freq <- data.frame(
+      V1   = c(1, 1, 1, 1, 2, 2, 2, 2),
+      V2   = c(1, 1, 2, 2, 1, 1, 2, 2),
+      V3   = c(1, 2, 1, 2, 1, 2, 1, 2),
+      Freq = c(220, 160, 60, 160, 60, 60, 60, 220)
+    )
+    df <- freq[rep(seq_len(nrow(freq)), freq$Freq), c("V1", "V2", "V3")]
+    rownames(df) <- NULL
+    df$id_auto <- seq_len(nrow(df))
+  
+  } else if(input$data_source_lca == "gss82") {
+    data("gss82", package = "poLCA")
+    df <- gss82 %>% rownames_to_column("id_auto") %>%
+      dplyr::mutate(
+        PURPOSE  = dplyr::recode(PURPOSE,  "Waste of time"=1,"Depends"=2,"Good"=3),
+        ACCURACY = dplyr::recode(ACCURACY, "Not true"=1,"Mostly true"=2),
+        UNDERSTA = dplyr::recode(UNDERSTA, "Fair/Poor"=1,"Good"=2),
+        COOPERAT = dplyr::recode(COOPERAT, "Impatient"=1,"Cooperative"=2,"Interested"=3)
+      )
     
   } else {
     req(input$datafile_lca)
-    ext <- tools::file_ext(input$datafile_lca$name)
-    df <- if(ext == "csv") read.csv(input$datafile_lca$datapath) else readxl::read_excel(input$datafile_lca$datapath)
+    showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
+    ext <- tolower(tools::file_ext(input$datafile_lca$name))
+    showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
+    df <- switch(
+      ext,
+      "csv"  = data.table::fread(
+        input$datafile_lca$datapath,
+        data.table = FALSE
+      ),
+      "xls"  = readxl::read_excel(input$datafile_lca$datapath),
+      "xlsx" = readxl::read_excel(input$datafile_lca$datapath),
+      "sav"  = haven::read_sav(input$datafile_lca$datapath),
+      "rds"  = readRDS(input$datafile_lca$datapath),
+      stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
+    )
+    removeModal()
     df <- df %>% mutate(across(everything(), ~ifelse(.x=="", NA, .x)),
                         id_auto = paste0("id_", sprintf("%04d", 1:n())))
   }
-  return(na.omit(df))
+  return(df)
+})
+data_lca <- reactive({
+  df <- data_source()
+  # Jika pakai covariat → buang baris NA di covariat
+  if (isTRUE(input$use_cov_lca) && length(input$cov_lca) > 0) {
+    df <- df %>% tidyr::drop_na(all_of(input$cov_lca))
+  }
+  
+  df
 })
 
 # ==== Pilih ID ====
 output$id_select_ui_lca <- renderUI({
-  req(data_lca())
+  req(data_source())
   selectInput(
     "id_lca",
     label = "Select ID Columns (Optional):",
     choices = names(data_lca()),
-    selected = names(data_lca())[str_detect(names(data_lca()), "id")],
+    selected = names(data_source())[str_detect(names(data_source()), "id")],
     multiple = TRUE
     )
 })
 
 # ==== Pilih variabel ====
 output$var_select_ui_lca <- renderUI({
-  req(data_lca())
+  req(data_source())
   selectInput(
     "vars_lca",
     label = "Select Variables for LCA:",
-    choices = names(data_lca()),
-    selected = names(data_lca()%>% dplyr::select(-c(id_auto)))[1:min(5,ncol(data_lca()))],
+    choices = names(data_source()),
+    selected = names(data_source()%>% dplyr::select(-c(id_auto)))[1:min(2,ncol(data_source()))],
     multiple = TRUE  )
 })
+
+output$cov_lca_ui <- renderUI({
+  req(data_source())
+  
+  tagList(
+    checkboxInput(
+      "use_cov_lca",
+      label = "Include Covariate?",
+      value = FALSE
+    ),
+    
+    conditionalPanel(
+      condition = "input.use_cov_lca == true",
+      selectInput(
+        "cov_lca",
+        label = "Select Covariate (Numeric):",
+        choices = names(data_source()),
+        multiple = TRUE
+      )
+    )
+  )
+})
+
 
 observeEvent(c(input$data_source_lca, input$datafile_lca), {
   updateSelectInput(session,"vars_lca",selected = "") 
@@ -103,7 +163,7 @@ output$data_summary_lca <- DT::renderDT({
     dplyr::arrange(dplyr::desc(Freq))
   
   DT::datatable(freq_table,extensions = 'Buttons',
-                options = list(scrollX = TRUE, dom = 'Bt',
+                options = list(scrollX = TRUE, dom = 'Brtp',
                                buttons = list(
                                  list(
                                    extend = 'csv',
@@ -118,28 +178,149 @@ output$data_summary_lca <- DT::renderDT({
                 rownames = TRUE)
 }, server = FALSE)
 
+output$data_description <- renderUI({
+  desc_html <- if (input$data_source_lca == "cheat") {
+    desc_cheating
+  } else if (input$data_source_lca == "lazar") {
+    desc_lazar
+  } else if (input$data_source_lca == "gss82") {
+    desc_gss82
+  } else {
+    ""
+  }
+  
+  div(
+    style = "font-size: 13px; line-height: 1.4; color: #333;",
+    HTML(desc_html)
+  )
+})
+
 # ==== Fit LCA ====
-lca_models <- eventReactive(input$run_lca, {
+lca_models <- eventReactive(input$run_lca, { 
   req(data_lca(), input$vars_lca)
-  dat <- data_lca()[, input$vars_lca]
-  dat <- dat %>% mutate(across(everything(), as.factor))
+  df <- data_lca()
+  showModal(modalDialog(title = NULL, "Please wait, (Running LCA)...", footer = NULL, easyClose = FALSE))
   
-  formula <- as.formula(paste("cbind(", paste(input$vars_lca, collapse=","), ") ~ 1"))
-  
+  # =========================
+  # 1. Tentukan kolom yang dipakai
+  # =========================
+  vars_ind  <- input$vars_lca
+  vars_cov  <- if (isTRUE(input$use_cov_lca)) input$cov_lca else NULL
+
+  used_vars <- unique(c(vars_ind, vars_cov))
+
+  dat <- df[, used_vars, drop = FALSE]
+
+  # =========================
+  # 2. Konversi indikator → factor
+  # =========================
+  dat <- dat %>%
+    mutate(across(all_of(vars_ind), as.factor))
+
+  # =========================
+  # 3. Kovariat: JANGAN dipaksa factor
+  #    (biarkan numeric tetap numeric)
+  # =========================
+  # OPTIONAL: jika mau auto-detect kovariat nominal
+  if (!is.null(vars_cov)) {
+    dat <- dat %>%
+      mutate(across(
+        all_of(vars_cov),
+        ~ if (is.numeric(.x) && dplyr::n_distinct(.x) <= 3) {
+          as.factor(.x)
+        } else {
+          .x
+        }
+      ))
+  }
+
+  # formula <- as.formula(paste("cbind(", paste(input$vars_lca, collapse=","), ") ~ 1"))
+  # =========================
+  # FORMULA (dengan / tanpa covariat)
+  # =========================
+  if (isTRUE(input$use_cov_lca) && length(input$cov_lca) > 0) {
+
+    formula_polca <- as.formula(
+      paste("cbind(", paste(input$vars_lca, collapse = ","), ") ~ ",
+        paste(input$cov_lca)
+      )
+    )
+    formula_glca <- as.formula(
+      paste("item(", paste(input$vars_lca, collapse = ","), ") ~ ",
+            paste(input$cov_lca)
+      )
+    )
+  } else {
+    formula_polca <- as.formula(
+      paste("cbind(", paste(input$vars_lca, collapse = ","), ") ~ 1")
+    )
+    formula_glca <- as.formula(
+      paste("item(", paste(input$vars_lca, collapse = ","), ") ~ 1")
+    )
+  }
+
   min_k <- input$min_class_lca
   max_k <- input$max_class_lca
-  
-  model_list <- list()
-  withProgress(message = "Running...", {
-    for(k in min_k:max_k){
-      incProgress(1/(max_k-min_k+1), detail = paste("LCA with", k, "Classes"))
-      model_list[[as.character(k)]] <- tryCatch({
-        poLCA::poLCA(formula, dat, nclass=k, verbose=FALSE)
-      }, error = function(e) NULL)
+  # model_list <- list()
+  polca_models <- list()
+  glca_models  <- list()
+  withProgress(message = "Estimating LCA models...", {
+    for (k in min_k:max_k) {
+      
+      incProgress(1 / (max_k - min_k + 1),
+                  detail = paste("Classes:", k))
+      
+      polca_models[[as.character(k)]] <- tryCatch(
+        poLCA::poLCA(formula = formula_polca, data= dat, nclass = k, verbose = FALSE),
+        error = function(e) NULL
+      )
+      
+      glca_models[[as.character(k)]] <- tryCatch(
+        glca::glca(formula=formula_glca, data=dat, nclass = k, seed = 1, verbose = FALSE),
+        error = function(e) NULL
+      )
     }
   })
-  model_list
+  # =========================
+  # GOFGLCA (SEMUA MODEL SEKALIGUS)
+  # =========================
+  withProgress(message = "Comparing Multiple Model...", {
+  glca_valid <- glca_models[!sapply(glca_models, is.null)]
+  gof <- if (length(glca_valid) >= 2) {
+    do.call(
+      glca::gofglca,
+      c(
+        unname(glca_valid), 
+        list(test = "boot", seed = 1)
+      )
+    )
+  } else {
+    NULL
+  }
+  gtable <- as.data.frame(gof$gtable) %>% dplyr::rename(p_Gsq = `Boot p-value`)
+  dtable <- as.data.frame(gof$dtable) %>% dplyr::rename(p_Deviance = `Boot p-value`) %>% dplyr::select(Deviance,p_Deviance)
+  gof_glca <- cbind(gtable,dtable)
+  if (input$min_class_lca == 1) {
+    fit_1_class <- data.frame(
+      loglik     = polca_models[["1"]]$llik,
+      AIC        = polca_models[["1"]]$aic,
+      BIC        = polca_models[["1"]]$bic,
+      entropy    = NA,
+      df         = polca_models[["1"]]$resid.df,
+      Gsq        = polca_models[["1"]]$Gsq,
+      p_Gsq      = NA,
+      Deviance   = NA,
+      p_Deviance = NA)
+    gof_glca <- rbind(fit_1_class, gof_glca)
+  }
+  })
+  removeModal()
+  list(
+    polca = polca_models,
+    glca   = gof_glca
+  )
 })
+
 
 # FUNCTION TO CALCULATION OF LCA -----
 APCP_poLCA <- function(fit) {
@@ -147,13 +328,10 @@ APCP_poLCA <- function(fit) {
   cls  <- fit$predclass
   K <- ncol(post)
   APCP_class <- sapply(1:K, function(k) {
-    mean(post[cls == k, k])
-  })
-  
+    mean(post[cls == k, k], na.rm=TRUE) })
   APCP_overall <- mean(post[cbind(1:nrow(post), cls)])
-  APCP_byclass <- mean(APCP_class)
+  APCP_byclass <- mean(APCP_class,  na.rm = TRUE)
   min_Prob <- min(post[cbind(1:nrow(post), cls)])
-  
   list(
     APCP_per_class = APCP_class,
     APCP_overall  = APCP_overall,
@@ -161,55 +339,111 @@ APCP_poLCA <- function(fit) {
     min_Prob = min_Prob
   )
 }
-entropy_poLCA <- function(fit) {
-  post <- fit$posterior
-  N <- nrow(post)
-  K <- ncol(post)
-  E <- - sum(post * log(post))
-  
-  1 - E / (N * log(K))
-  entropy <- 1 - E / (N * log(K))
-  
-  return(entropy)
-}
+# Smallest Class Size ===
+smallest_class <- reactive({ 
+  req(lca_models())
+  purrr::map_df(names(lca_models()$polca), function(k) {
+    model_k <- lca_models()$polca[[k]]
+    membership <- model_k$predclass
+    class_table <- as.data.frame(table(membership))
+    names(class_table) <- c("Class", "N")
+    
+    class_table$Percent <- round(100 * class_table$N / sum(class_table$N), 1)
+    min_class <- class_table %>% slice_min(N, n = 1)
+    min_class$N_class <- as.numeric(k)
+    min_class
+  })
+})
+
+
 # ==== Fit Table ====
+
+# fit_lca <- reactive({
+#   req(lca_models())
+#   
+#   fit <- data.frame(
+#     N_class = integer(),
+#     Smallest_class_size = numeric(),
+#     Av_Prob = numeric()
+#   )
+#   
+#   gof <- lca_models()$glca
+#   model_polca <- lca_models()$polca
+#   smallest_df <- smallest_class()
+#   
+#   for (k in names(model_polca)) {
+#     n <- model_polca[[k]]
+#     if (!is.null(n)) {
+#       
+#       scs <- smallest_df %>%
+#         dplyr::filter(N_class == as.numeric(k)) %>%
+#         dplyr::pull(Percent)
+#       
+#       fit <- rbind(
+#         fit,
+#         data.frame(
+#           N_class = as.numeric(k),
+#           Av_Prob = round(APCP_poLCA(n)$APCP_byClass, 2),
+#           Smallest_class_size = scs
+#         )
+#       )
+#     }
+#   }
+#   
+#   cbind(fit, gof)
+# })
+
 fit_lca <- reactive({
   req(lca_models())
-  set.seed(123)
-  fit <- data.frame(N_class=integer(), AIC=numeric(), BIC=numeric(), Gsq=numeric(), Chisq=numeric(), resid.df=numeric(), 
-                    Entropy =numeric(), APCP_byClass=numeric(), APCP_overall=numeric(), Min_Prob = numeric())
-  for(k in names(lca_models())){
-    m <- lca_models()[[k]]
-    if(!is.null(m)){
-      fit <- rbind(fit, data.frame(
-        N_class = k,
-        AIC = round(m$aic,3),
-        BIC = round(m$bic,3),
-        Gsq = round(m$Gsq,3),
-        Chisq = round(m$Chisq,3),
-        Resid.df = m$resid.df,
-        #Entropy = round(entropy_poLCA(m),3) ,
-        # Entropy = poLCA.entropy(m),
-        #APCP_overall =round(APCP_poLCA(m)$APCP_overall,3) 
-        Min_Prob = round(APCP_poLCA(m)$min_Prob,3),
-        Av_Prob = round(APCP_poLCA(m)$APCP_byClass,3)
-      ))
+  
+  fit <- data.frame(
+    N_class = integer(),
+    Smallest_class_size = numeric(),
+    Av_Prob = numeric()
+  )
+  
+  gof <- lca_models()$glca
+  model_polca <- lca_models()$polca
+  smallest_df <- smallest_class()
+  
+  for (k in names(model_polca)) {
+    n <- model_polca[[k]]
+    if (!is.null(n)) {
+      
+      scs <- smallest_df %>%
+        dplyr::filter(N_class == as.numeric(k)) %>%
+        dplyr::pull(Percent)
+      
+      fit <- rbind(
+        fit,
+        data.frame(
+          N_class = as.numeric(k),
+          Av_Prob = round(APCP_poLCA(n)$APCP_byClass, 2),
+          Smallest_class_size = scs
+        )
+      )
     }
   }
-  fit
+  
+  cbind(fit, gof)
 })
+
 
 # ==== Fit Table ====
 output$fit_table_lca <- renderDT({
-    df <- fit_lca()
-    #max_APCP_overall  <- max(df$APCP_overall, na.rm = TRUE)
+    df <- fit_lca() %>% 
+      dplyr::select(N_class, loglik:p_Deviance, Smallest_class_size, Av_Prob) %>% 
+      dplyr::mutate(
+        dplyr::across(
+          .cols = -c(N_class,df),
+          .fns  = ~ round(.x, 2)
+        )
+      )
     aic_vals <- sort(unique(df$AIC))
     bic_vals <- sort(unique(df$BIC))
-   # ent_vals <- sort(unique(df$Entropy), decreasing = TRUE)
+    ent_vals <- sort(unique(df$entropy), decreasing = TRUE)
     apcp_vals  <- sort(unique(df$Av_Prob), decreasing = TRUE)
-    min_prob_vals  <- sort(unique(df$Min_Prob), decreasing = TRUE)
-    
-  
+
     DT::datatable(df,extensions = 'Buttons',
                   options = list(scrollX = TRUE, dom = 'B',
                                  buttons = list(
@@ -238,52 +472,42 @@ output$fit_table_lca <- renderDT({
                   ),
                   fontWeight = styleEqual(bic_vals[1], 'bold')
       ) %>%
-      # formatStyle('Entropy',
-      #             backgroundColor = styleEqual(
-      #               c(ent_vals[1], ent_vals[2]),
-      #               c('lightgreen', 'khaki')
-      #             ),
-      #             fontWeight = styleEqual(ent_vals[1], 'bold')
-      # ) %>%
+      formatStyle('entropy',
+                  backgroundColor = styleInterval(c(0.7, 0.8), c('lightcoral', 'khaki', 'lightgreen')),
+                  fontWeight      = styleInterval(c(0.7, 0.8), c('bold', 'bold',''))
+      ) %>%
       formatStyle('Av_Prob',
-                  backgroundColor = styleEqual(
-                    c(apcp_vals[1], apcp_vals[2]),
-                    c('lightgreen', 'khaki')
-                  ),
-                  fontWeight = styleEqual(apcp_vals[1], 'bold')
+                    backgroundColor = styleInterval(c(0.8, 0.9), c('lightcoral', 'khaki', 'lightgreen')),
+                    fontWeight      = styleInterval(c(0.8, 0.9), c('bold', 'bold',''))
       ) %>% 
-      formatStyle('Min_Prob',
-                  backgroundColor = styleEqual(
-                    c(min_prob_vals[1], min_prob_vals[2]),
-                    c('lightgreen', 'khaki')
-                  ),
-                  fontWeight = styleEqual(min_prob_vals[1], 'bold')
+      formatStyle(
+        'p_Gsq',
+        backgroundColor = styleInterval(0.05, c('lightcoral', 'lightgreen')),
+        fontWeight      = styleInterval(0.05, c('bold', ''))
+      ) %>%
+      formatStyle(
+        'p_Deviance',
+        backgroundColor = styleInterval(0.05, c('lightgreen', 'lightcoral')),
+        fontWeight      = styleInterval(0.05, c('', 'bold'))
+      ) %>% 
+      formatStyle(
+        'Smallest_class_size',
+        backgroundColor = styleInterval(c(5, 7), c('lightcoral', 'khaki', 'lightgreen')),
+        fontWeight      = styleInterval(c(5, 7), c('bold', 'bold',''))
       )
 }, server = FALSE)
 
 # ==== Fit Plot (AIC/BIC) ====
 fit_plot_lca_reactive <- reactive({
   req(lca_models())
-  fit <- data.frame(N_class=integer(), AIC=numeric(), BIC=numeric())
-  for(k in names(lca_models())){
-    m <- lca_models()[[k]]
-    if(!is.null(m)){
-      fit <- rbind(fit, data.frame(
-        N_class = as.numeric(k),
-        AIC = m$aic,
-        BIC = m$bic
-      ))
-    }
-  }
+  fit <- fit_lca() %>% dplyr::select(N_class, BIC, AIC)
   fit_long <- fit %>% pivot_longer(-N_class, names_to="Index", values_to="Value")
   ggplot(fit_long, aes(x=N_class, y=Value, color=Index, group=Index)) +
     geom_line(size = 1.2) + geom_point(size = 3) +
     geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3) +
-    labs(title = "Model Comparison (AIC & BIC)", x = "Number of Class", y = "Fit Index") +
+    labs(title = "BIC & AIC Comparison", x = "Number of Class", y = "Fit Index") +
     theme_minimal(base_size = 14) + 
     theme(legend.position = "bottom", axis.line = element_line(color = "black"))
-  
-  
 })
 # Render Plot
 output$fit_plot_lca <- renderPlot({
@@ -293,44 +517,48 @@ output$fit_plot_lca <- renderPlot({
 # ==== Download Buttons ====
 output$download_plot_AicBic_LCA <- make_download_plot(
   plot_reactive = fit_plot_lca_reactive,
-  filename_prefix = "Fit AIC BIC Plot_LCA"
+  filename_prefix = "Fit BIC & AIC Plot_LCA"
 )
-# ==== Smallest Class Size Plot ====
-smallest_class_plot_lca_reactive <- reactive({ 
+
+# ==== Entropy Plot  ====
+entropy_plot_lca_reactive <- reactive({
   req(lca_models())
-  # Buat data frame untuk setiap model
-  smallest_df <- purrr::map_df(names(lca_models()),
-                               function(k) {
-                                 model_k <- lca_models()[[k]]
-                                 membership <- model_k$predclass
-                                 class_table <- as.data.frame(base::table(membership))
-                                 names(class_table) <- c("Class", "N")
-                                 class_table$Percent <- round(100 * class_table$N/sum(class_table$N), 1)
-                                 # Ambil kelas terkecil
-                                 min_class <- class_table %>% slice_min(order_by = N, n = 1)
-                                 min_class$model <- paste0(k, "-class")
-                                 min_class
-                               })
   
-  # Plot bar horizontal
-  ggplot(smallest_df, aes(x = model, y = Percent, fill = model)) +
-    geom_col(width = 0.5) +
-    geom_text(aes(label = paste0(Percent, "%")), size = 4) +
-   # coord_flip() +
-    scale_y_continuous(limits = c(0, max(smallest_df$Percent)+18)) +
-    labs(x = "Model", y = "Percentage") +
+  fit <- fit_lca() %>%
+    dplyr::select(N_class, entropy, Av_Prob) %>%
+    tidyr::pivot_longer(-N_class, names_to = "Index", values_to = "Value")
+  
+  ggplot(
+    fit,
+    aes(
+      N_class, Value,
+      color = Index, linetype = Index, shape = Index, group = Index
+    )
+  ) +
+    geom_line(size = 1.2) +
+    geom_point(size = 3) +
+    geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3, show.legend = FALSE) +
+    scale_color_manual(values = c(entropy = "black", Av_Prob = "blue")) +
+    scale_shape_manual(values = c(entropy = 17, Av_Prob = 15)) +
+    scale_linetype_manual(values = c(entropy = "solid", Av_Prob = "dashed")) +
+    labs(
+      title = "Entropy & Average Posterior Probability",
+      x = "Number of Class",
+      y = "Value"
+    ) +
     theme_minimal(base_size = 14) +
-    theme(legend.position = "none", axis.line = element_line(color = "black"))
+    theme(legend.position = "bottom", axis.line = element_line(color = "black"))
 })
+
 # Render Plot
-output$smallest_class_plot_lca <- renderPlot({
-  smallest_class_plot_lca_reactive()
+output$entropy_plot_lca <- renderPlot({
+  entropy_plot_lca_reactive()
 })
 
 # ==== Download Buttons ====
-output$download_plot_classSize_LCA <- make_download_plot(
-  plot_reactive = smallest_class_plot_lca_reactive,
-  filename_prefix = "BestPlot_LPA"
+output$download_plot_entropy <- make_download_plot(
+  plot_reactive = entropy_plot_lca_reactive,
+  filename_prefix = "Entropy & Av. Posterior Probability Plot_LCA"
 )
 
 observeEvent(input$best_class_lca, {
@@ -368,9 +596,10 @@ build_best_model_plot_lca <- function(lca_models, k, vars_lca, class_names, inte
     tidyr::gather(key = "class", value = "probability", 3:ncol(prob)) %>%
     dplyr::mutate(
       class = gsub("Prob.", "", class),
-      probability = round(as.numeric(probability), 3)
-    ) %>%
-    dplyr::arrange(Var)
+      probability = round(as.numeric(probability), 3),
+      Var = factor(Var, levels = vars_lca)
+    )# %>%
+    # dplyr::arrange(Var)
   
   prob_gathered$class <- factor(
     prob_gathered$class,
@@ -402,10 +631,10 @@ build_best_model_plot_lca <- function(lca_models, k, vars_lca, class_names, inte
     ylab("Probability") + xlab("") +
     theme_minimal(base_size = 13) +
     theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 10),
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
       panel.grid.major.x = element_blank(),
       panel.grid.minor.x = element_blank(),
-      strip.text = element_text(face = "bold", size = 12)
+      strip.text = element_text(face = "bold", size = 11)
     )
 }
 
@@ -416,7 +645,7 @@ best_model_plot_lca_reactive <- reactive({
   class_names <- sapply(1:k, function(i) input[[paste0("class_name_", i)]])
   if (length(class_names) == 0) class_names <- paste("Class", 1:k)
   
-  build_best_model_plot_lca(lca_models(), k, input$vars_lca, class_names, interactive = TRUE)
+  build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = TRUE)
 })
 
 # === 3. Render plot interaktif ===
@@ -444,7 +673,7 @@ best_model_plot_lca_static <- reactive({
   class_names <- sapply(1:k, function(i) input[[paste0("class_name_", i)]])
   if (length(class_names) == 0) class_names <- paste("Class", 1:k)
   
-  build_best_model_plot_lca(lca_models(), k, input$vars_lca, class_names, interactive = FALSE)
+  build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = FALSE)
 })
 
 
@@ -459,7 +688,7 @@ summary_data_lca <- reactive({
   req(lca_models(), input$best_class_lca, input$vars_lca)
   
   k <- as.numeric(input$best_class_lca)
-  model_k <- lca_models()[[as.character(k)]]
+  model_k <- lca_models()$polca[[as.character(k)]]
   req(model_k)
   
   # Ambil nama class dari input (fallback jika belum diisi)
@@ -512,7 +741,7 @@ output$summary_table_lca <- renderUI({
   tagList(
     tags$h5("Class Size"),
     DTOutput("class_size_table_lca"),
-    tags$h5("Item-Category Probabilities"),
+    tags$h5("Item-Categories Probabilities"),
     DTOutput("probability_table_lca")
   )
 })
@@ -556,40 +785,119 @@ output$probability_table_lca <- renderDT({
     formatRound(columns = numeric_cols, digits = 2)
 })
 
-# ==== Summary Table & Profile per ID ====
-output$profile_table_lca <- renderDT({
+# df_out <- reactive({
+#   req(lca_models(), input$best_class_lca)
+#   k <- as.numeric(input$best_class_lca)
+#   # Ambil nama class dari input (fallback jika belum diisi)
+#   class_names <- sapply(1:k, function(i) {
+#     nm <- input[[paste0("class_name_", i)]]
+#     if (is.null(nm) || nm == "") paste0("Class ", i) else nm
+#   })
+#   model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
+#   req(model_k)
+#   
+#   df <- data_lca()
+#   df$Class <- model_k$predclass
+#   df$Class <- class_names[df$Class]
+#   df$Respon <- df %>%
+#     tidyr::unite("Respon", all_of(input$vars_lca), sep = "-", remove = FALSE) %>%
+#     dplyr::pull(Respon)
+#   
+#   # --- Posterior probabilities ---
+#   posterior_df <- as.data.frame(round(model_k$posterior,2))
+#   colnames(posterior_df) <- paste0("Posterior_Prob_", class_names)
+#   numeric_cols <- which(sapply(posterior_df, is.numeric))
+#   
+#   # Gabungkan: ID + vars + posterior + Class
+#   df <- cbind(
+#     df,
+#     posterior_df
+#   )
+#   df
+#   
+# })
+df_out <- reactive({
   req(lca_models(), input$best_class_lca)
+  
   k <- as.numeric(input$best_class_lca)
-  # Ambil nama class dari input (fallback jika belum diisi)
+  
+  # --- Class names ---
   class_names <- sapply(1:k, function(i) {
     nm <- input[[paste0("class_name_", i)]]
     if (is.null(nm) || nm == "") paste0("Class ", i) else nm
   })
   
-  model_k <- lca_models()[[as.character(input$best_class_lca)]]
+  model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
   req(model_k)
   
   df <- data_lca()
-  id_cols <- if(is.null(input$id_lca) || length(input$id_lca)==0) "id_auto" else input$id_lca
-  df$Class <- model_k$predclass
-  df$Class <- class_names[df$Class]
+  n <- nrow(df)
   
-  #df <- df[, c(id_cols, input$vars_lca, "Class")]
+  # --- Tentukan baris yang benar-benar dipakai LCA ---
+  vars_used <- input$vars_lca
+  valid_idx <- complete.cases(df[, vars_used])
+  
+  # --- Inisialisasi kolom hasil (panjang = data asli) ---
+  df$Class <- NA_character_
+  
+  # Isi hanya untuk baris valid
+  df$Class[valid_idx] <- class_names[model_k$predclass]
+  
+  # --- Respon pattern (aman walau ada NA) ---
+  df$Respon <- df |>
+    tidyr::unite("Respon", all_of(vars_used), sep = "-", remove = FALSE) |>
+    dplyr::pull(Respon)
+  
   # --- Posterior probabilities ---
-  posterior_df <- as.data.frame(round(model_k$posterior,2))
+  posterior_mat <- model_k$posterior
+  posterior_df <- matrix(NA, nrow = n, ncol = k)
+  posterior_df[valid_idx, ] <- round(posterior_mat, 2)
+  
+  posterior_df <- as.data.frame(posterior_df)
   colnames(posterior_df) <- paste0("Posterior_Prob_", class_names)
-  numeric_cols <- which(sapply(posterior_df, is.numeric))
   
-  # Gabungkan: ID + vars + posterior + Class
-  df <- cbind(
-    df[, c(id_cols, input$vars_lca)],
-    posterior_df,
-    Class = df$Class
-  )
-  # Buat kolom join (kombinasi respons)
+  # --- Gabungkan ke data asli ---
+  df <- cbind(df, posterior_df)
   
-  DT::datatable(df,extensions = 'Buttons',
+  df
+})
+
+# Data Summary Respon_With Class
+output$data_summary_lca_with_class <- DT::renderDT({
+  req(df_out(), input$best_class_lca)
+  df <- df_out()
+  # Tabel frekuensi
+  freq_table <- df %>%
+    dplyr::count(Respon,Class, name = "Freq") %>%
+    dplyr::mutate(
+      Percent = round(100 * Freq / sum(Freq), 2)
+    ) %>%
+    dplyr::arrange(dplyr::desc(Freq))
+  
+  DT::datatable(freq_table,extensions = 'Buttons',
                 options = list(scrollX = TRUE, pageLength=25,
+                               dom = 'Brtp',
+                               buttons = list(
+                                 list(
+                                   extend = 'csv',
+                                   text = 'Export CSV',
+                                   filename = paste0('Data LCA')  
+                                 ),
+                                 list(
+                                   extend = 'excel',
+                                   text = 'Export Excel',
+                                   filename = paste0('Data LCA')
+                                 ))),
+                rownames = TRUE)
+}, server = FALSE)
+
+
+# ==== Summary Table & Class per ID ====
+output$profile_table_lca <- renderDT({
+  req(lca_models(), input$best_class_lca)
+  df <- df_out()
+  DT::datatable(df,extensions = 'Buttons',
+                options = list(scrollX = TRUE, pageLength=10,
                                dom = 'Brtp',
                                buttons = list(
                                  list(
@@ -606,5 +914,532 @@ output$profile_table_lca <- renderDT({
   
 }, server = FALSE)
 
+output$var_x_ui <- renderUI({
+  req(df_out())
+  selectInput(
+    "var_x",
+    label = "X Absis",
+    choices = names(df_out()),
+    selected = "Class",
+    multiple = FALSE 
+  )
+})
+output$var_y_ui <- renderUI({
+  req(df_out())
+  selectInput(
+    "var_y",
+    label = "Y Absis",
+    choices = setdiff(names(df_out()), "Class"),
+    selected = "",
+    multiple = TRUE
+  )
+})
+output$cross_latent <- renderPlot({
+  req(lca_models(), input$best_class_lca, input$var_x, input$var_y)
+  df <- df_out()
+  # =========================
+  # 1. RINGKAS DATA
+  # =========================
+  Summary_long <- df %>%
+    dplyr::select(all_of(c(input$var_x, input$var_y))) %>%
+    tidyr::pivot_longer(
+      cols = all_of(input$var_y),
+      names_to = "Variable",
+      values_to = "Value"
+    ) %>%
+    dplyr::group_by(
+      Class  = .data[[input$var_x]],
+      Variable
+    ) %>%
+    dplyr::summarise(
+      Mean = mean(Value, na.rm = TRUE),
+      .groups = "drop"
+    ) %>% 
+    dplyr::mutate(
+      Variable = factor(Variable, levels = input$var_y)
+    )
+  
+  # =========================
+  # 2. BASE PLOT
+  # =========================
+  p <- ggplot(
+    Summary_long,
+    aes(
+      x = Variable,
+      y = Mean,
+      fill = Class,
+      color = Class,
+      group = Class
+    )
+  )
+  # =========================
+  # 3. SWITCH BAR / LINE
+  # =========================
+  if (input$plot_type == "bar") {
+    
+    p <- p +
+      geom_col(
+        position = position_dodge(width = 0.7),
+        width = 0.6
+      )
+  } else {
+    p <- p +
+      geom_line(
+        aes(linetype = Class),
+        size = 1.2
+      ) +
+      geom_point(
+        aes(shape = Class),
+        size = 3
+      )
+  }
+  
+  # =========================
+  # 4. FINAL STYLE
+  # =========================
+  p +
+    geom_text(
+      aes(label = round(Mean, 2)),
+      position = position_dodge(width = 0.7),
+      vjust = -0.7,
+      size = 4.5,
+      show.legend = FALSE
+    ) +
+    labs(
+      title = paste0("Class Plot for ", input$best_class_lca, " Classes"),
+      x = "Variable",
+      y = "Mean Value"
+    ) +
+    ylim(0, max(Summary_long$Mean, na.rm = TRUE) * 1.18) +
+    
+    theme_minimal(base_size = 10) +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 9),
+      legend.position = "bottom",
+      axis.line = element_line(color = "black")
+    )
+  })
+
+output$reg_lca_summary <- renderTable ({
+  req(lca_models(), input$best_class_lca, input$use_cov_lca)
+  
+  model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
+  req(model_k$coeff)
+  
+  coef_mat <- model_k$coeff
+  coef_df <- as.data.frame(coef_mat)
+  coef_df$Covariate <- rownames(coef_df)
+  
+  coef_df <- coef_df %>%
+    relocate(Covariate) %>%
+    mutate(across(where(is.numeric), round, 3))
+  coef_df
+})
+output$reg_lca_plot <- renderPlot({
+  req(
+    lca_models(),
+    input$best_class_lca,
+    input$use_cov_lca,
+    input$cov_lca
+  )
+  
+  # === HANYA UNTUK 2 KELAS ===
+  if (as.numeric(input$best_class_lca) != 2) {
+    return(NULL)
+  }
+  
+  model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
+  beta <- model_k$coeff
+  coef_names <- rownames(beta)
+  
+  # === Pilih kovariat ===
+  cov_name <- input$cov_lca[1]
+  cov_vals <- sort(unique(data_lca()[[cov_name]]))
+  
+  # === Design matrix X ===
+  X <- data.frame(matrix(0, nrow = length(cov_vals), ncol = length(coef_names)))
+  colnames(X) <- coef_names
+  
+  if ("(Intercept)" %in% coef_names) {
+    X[["(Intercept)"]] <- 1
+  }
+  if (cov_name %in% coef_names) {
+    X[[cov_name]] <- cov_vals
+  }
+  
+  # === Probabilities ===
+  eta <- as.matrix(X) %*% beta
+  p_class2 <- as.vector(exp(eta) / (1 + exp(eta)))
+  p_class1 <- 1 - p_class2
+  
+  prob_df <- data.frame(
+    Covariate = cov_vals,
+    `Class 1` = p_class1,
+    `Class 2` = p_class2
+  )
+  
+  prob_long <- tidyr::pivot_longer(
+    prob_df,
+    cols = c("Class 1", "Class 2"),
+    names_to = "Class",
+    values_to = "Probability"
+  )
+  
+  # === Plot ===
+  ggplot(prob_long, aes(Covariate, Probability, color = Class)) +
+    geom_line(size = 1.2) +
+    geom_point(size = 3) +
+    scale_y_continuous(limits = c(0, 1)) +
+    labs(
+      x = cov_name,
+      y = "Predicted Class Membership Probability",
+      title = "Effect of Covariate on Latent Class Membership (2-Class Model)"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      legend.position = "bottom",
+      axis.line = element_line(color = "black")
+    )
+})
+output$anova_lca_ui <- renderUI({
+  req(lca_models(), input$best_class_lca, input$var_x, input$var_y)
+  
+  if (isTRUE(input$check_anova)) {
+    tagList(
+      tags$h5(
+        paste0(
+          "Latent Class Differences on ",
+          paste(input$var_y, collapse = ", ")
+        )
+      ),
+      tags$h6("Analysis of Variance"),
+      tableOutput("anova_lca_table"),
+      uiOutput("posthoc_lca_ui")
+    )
+  }
+})
+output$anova_lca_table <- renderTable({
+  req(df_out(), input$var_x, input$var_y)
+  
+  df <- df_out()
+  x  <- input$var_x
+  ys <- input$var_y
+  
+  # =========================
+  # CASE 1: ONE-WAY ANOVA
+  # =========================
+  if (length(ys) == 1) {
+    
+    fml <- as.formula(paste(ys, "~", x))
+    fit <- aov(fml, data = df)
+    tbl <- summary(fit)[[1]]
+    
+    pval <- tbl["Pr(>F)"][1,1]
+    
+    out <- data.frame(
+      Source = rownames(tbl),
+      round(tbl, 4),
+      row.names = NULL
+    )
+    
+    out$Interpretation <- c(
+      ifelse(
+        pval < 0.05,
+        "Significant difference",
+        "No significant difference"
+      ),
+      rep("", nrow(out) - 1)
+    )
+    
+    out
+    
+  } else {
+    
+    # =========================
+    # CASE 2: MANOVA
+    # =========================
+    
+    fml <- as.formula(
+      paste(
+        "cbind(",
+        paste(ys, collapse = ","),
+        ") ~ ",
+        x
+      )
+    )
+    
+    fit <- manova(fml, data = df)
+    tbl <- summary(fit, test = "Wilks")$stats
+    pval <- tbl[1, "Pr(>F)"]
+    
+    out <- data.frame(
+      Effect = rownames(tbl),
+      round(tbl, 4),
+      row.names = NULL
+    )
+    
+    out$Interpretation <- ifelse(
+      out$Effect == x,
+      ifelse(
+        pval < 0.05,
+        "Significant difference",
+        "No significant difference"
+      ),
+      ""
+    )
+    
+    out
+  }
+})
+output$posthoc_lca_ui <- renderUI({
+  req(df_out(), input$var_x, input$var_y)
+  
+  if (length(input$var_y) == 1) {
+    tagList(
+      tags$h6("Post-hoc Test (Tukey HSD)"),
+      tableOutput("posthoc_lca_table")
+    )
+  }
+})
+output$posthoc_lca_table <- renderTable({
+  req(df_out(), input$var_x, input$var_y)
+  
+  # Post-hoc hanya untuk ANOVA
+  if (length(input$var_y) != 1) return(NULL)
+  
+  df <- df_out()
+  x  <- input$var_x
+  y  <- input$var_y
+  
+  fml <- as.formula(paste(y, "~", x))
+  fit <- aov(fml, data = df)
+  
+  # p-value ANOVA utama
+  p_main <- summary(fit)[[1]]["Pr(>F)"][1, 1]
+  
+  # Jika tidak signifikan → tampilkan pesan
+  if (is.na(p_main) || p_main >= 0.05) {
+    return(
+      data.frame(
+        Note = "Post-hoc test was not conducted because the ANOVA result was not statistically significant."
+      )
+    )
+  }
+  
+  tuk <- TukeyHSD(fit)[[1]]
+  tuk <- round(as.data.frame(tuk), 4)
+  
+  data.frame(
+    Comparison = rownames(tuk),
+    tuk,
+    Interpretation = ifelse(
+      tuk$`p adj` < 0.05,
+      "Significant difference",
+      "Not significant"
+    ),
+    row.names = NULL
+  )
+})
+output$reg_lca_ui <- renderUI({
+  req(input$use_cov_lca)
+  
+  if (isTRUE(input$use_cov_lca) && length(input$cov_lca) > 0) {
+    tagList(
+      tags$h5("Covariate Effects on Class Membership"),
+      tableOutput("reg_lca_summary"),
+      br(),
+      plotOutput("reg_lca_plot", height = "400px")
+    )
+  }
+})
+
+# CrossTab====
+output$crosstab_ui <- renderUI({
+  req(input$crosstab_result)
+  if (!input$crosstab_result) return(NULL)
+  
+  req(df_out())
+  vars <- setdiff(names(df_out()), "Class")
+  fluidRow(
+    column(
+      12,
+      h5("Cross Tabulation Settings"),
+      selectInput(
+        "crosstab_vars",
+        "Select Variables:",
+        choices = vars,
+        multiple = TRUE
+      )
+    ),
+    column(
+      6,
+      h5("Cross Tabulation For Categorical Variables"),
+      tableOutput("crosstab_cat"),
+      plotOutput("crosstab_cat_plot")
+    ),
+    column(
+      6,
+      h5("Mean & SD for Continuous Variables"),
+      tableOutput("crosstab_cont"),
+      plotOutput("crosstab_cont_plot")
+    ),
+    br(), br(), br()
+  )
+})
+output$crosstab_cat <- renderTable({
+  req(input$crosstab_result, input$crosstab_vars)
+  if (!input$crosstab_result) return(NULL)
+  
+  df <- df_out()
+  
+  vars_cat <- input$crosstab_vars[
+    sapply(df[input$crosstab_vars], function(x)
+      is.factor(x) || is.character(x))
+  ]
+  
+  if (length(vars_cat) == 0) return(NULL)
+  
+  do.call(rbind, lapply(vars_cat, function(v) {
+    tab <- as.data.frame(
+      table(Class = df$Class, Category = df[[v]])
+    )
+    
+    tab <- tab |>
+      dplyr::group_by(Category) |>
+      dplyr::mutate(
+        Percent = round(Freq / sum(Freq) * 100, 2)
+      ) |>
+      dplyr::ungroup()
+    
+    data.frame(
+      Class  = tab$Class,
+      Variable = v,
+      Category = tab$Category,
+      N        = tab$Freq,
+      Percent  = tab$Percent
+    )
+  }))
+})
+output$crosstab_cont <- renderTable({
+  req(df_out(), input$crosstab_vars)
+  
+  df <- df_out()
+  
+  vars_num <- input$crosstab_vars[
+    sapply(df[input$crosstab_vars], is.numeric)
+  ]
+  
+  if (length(vars_num) == 0) return(NULL)
+  
+  res <- lapply(vars_num, function(v) {
+    aggregate(
+      df[[v]],
+      by = list(Class = df$Class),
+      FUN = function(x)
+        paste0(round(mean(x, na.rm = TRUE), 2),
+               " (", round(sd(x, na.rm = TRUE), 2), ")")
+    ) |>
+      setNames(c("Class", v))
+  })
+  
+  Reduce(function(x, y) merge(x, y, by = "Class"), res)
+})
+output$crosstab_cat_plot <- renderPlot({
+  req(input$crosstab_result, input$crosstab_vars)
+  if (!input$crosstab_result) return(NULL)
+  
+  df <- df_out()
+  
+  vars_cat <- input$crosstab_vars[
+    sapply(df[input$crosstab_vars], function(x)
+      is.factor(x) || is.character(x))
+  ]
+  
+  if (length(vars_cat) == 0) return(NULL)
+  
+  plot_data <- do.call(rbind, lapply(vars_cat, function(v) {
+    tab <- as.data.frame(table(Class = df$Class, Category = df[[v]]))
+    
+    tab <- tab |>
+      dplyr::group_by(Category) |>
+      dplyr::mutate(
+        Percent = round(Freq / sum(Freq) * 100, 2)
+      ) |>
+      dplyr::ungroup()
+    
+    tab$Variable <- v
+    tab
+  }))
+  
+  ggplot(plot_data,
+         aes(x = Category, y = Percent, fill = Class)) +
+    geom_col(
+      width = 0.6,
+      position = position_dodge(width = 0.7)
+    ) +
+    geom_text(
+      aes(label = paste0(Percent, "%")),
+      position = position_dodge(width = 0.7),
+      vjust = -0.25,
+      size = 3
+    ) +
+    facet_wrap(~ Variable, scales = "free_x") +
+    labs(
+      title = "Categorical Cross-Tabulation by Class",
+      y = "Percentage (%)",
+      x = NULL
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 9),
+      legend.position = "bottom",
+      axis.line = element_line(color = "black")
+    )
+})
+output$crosstab_cont_plot <- renderPlot({
+  req(input$crosstab_result, input$crosstab_vars)
+  if (!input$crosstab_result) return(NULL)
+  
+  df <- df_out()
+  
+  vars_num <- input$crosstab_vars[
+    sapply(df[input$crosstab_vars], is.numeric)
+  ]
+  
+  if (length(vars_num) == 0) return(NULL)
+  
+  plot_data <- df |>
+    dplyr::select(Class, dplyr::all_of(vars_num)) |>
+    tidyr::pivot_longer(
+      cols = -Class,
+      names_to = "Variable",
+      values_to = "Value"
+    ) |>
+    dplyr::group_by(Class, Variable) |>
+    dplyr::summarise(
+      Mean = mean(Value, na.rm = TRUE),
+      SD   = sd(Value, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  ggplot(plot_data, aes(x = Class, y = Mean, fill = Class)) +
+    geom_col(width = 0.6) +
+    geom_errorbar(
+      aes(ymin = Mean - SD, ymax = Mean + SD),
+      width = 0.2
+    ) +
+    facet_wrap(~ Variable, scales = "free_y") +
+    labs(
+      title = "Continuous Variables by Class",
+      y = "Mean (± SD)",
+      x = NULL
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 9),
+      legend.position = "none",
+      axis.line = element_line(color = "black")
+    )
+})
 
 }

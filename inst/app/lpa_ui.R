@@ -35,6 +35,18 @@ lpa_ui <- function(project) {
           numericInput("min_profiles", "Min Number of Profiles:", 2, min = 1),
           numericInput("max_profiles", "Max. Number of Profiles:", 6, min = 2),
           
+          selectInput(
+            "model_to_run", 
+            "Select Model Type:",
+            choices = list(
+              "Model 1: Equal variances, covariances fixed to 0" = 1,
+              "Model 2: Varying variances, covariances fixed to 0" = 2,
+              "Model 3: Equal variances & covariances" = 3,
+              "Model 6: Varying variances & covariances" = 6
+            ),
+            selected = 1,
+            multiple = TRUE
+          ),
           actionButton("run_lpa", 
                        label = tagList(icon("play"), "Run LPA"), 
                        class = "btn btn-success btn-block",
@@ -48,6 +60,8 @@ lpa_ui <- function(project) {
           h5(icon("table"), "Data Preview"),
           DTOutput("data_preview"),
           br(),
+          DTOutput("data_summary_lpa"),
+          br(),
           uiOutput("data_description"),
           
           br(),
@@ -60,49 +74,53 @@ lpa_ui <- function(project) {
       title = tagList(icon("chart-line"), "Fit Model Comparison"),
       value = "fit_tab",  # <--- tambahkan ini juga
       
-      fluidRow(
+      column(12,
         div(
           style = "text-align:center;",  # pusatkan kontainer
           div(
             style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
             
             column(12, h5(icon("info-circle"), "Model Fit Statistics"), 
-                   DTOutput("fit_table")#,
-                   # tags$div(
-                   #   style = "margin-top: 0px; font-size: 12px; color: #6c757d;",
-                   #   tags$b("Note:"),
-                   #   tags$ul(
-                   #     tags$li(tags$span(style = "color: blue;", "BIC:"),"Bayesian information criterion"),
-                   #     tags$li(tags$span(style = "color: blue;", "AIC:"),"Aikake information criterion"),
-                   #     tags$li(tags$span(style = "color: blue;", "Entropy:"),"A measure of classification uncertainty (1 = complete certainty; 0 = complete uncertainty)"),
-                   #     tags$li(tags$span(style = "color: blue;", "prob_min:"),"Minimum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class"),
-                   #     tags$li(tags$span(style = "color: blue;", "prob_max:"),"Maximum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class"),
-                   #     tags$li(tags$span(style = "color: blue;", "n_min:"),"Proportion of the sample assigned to the smallest class"),
-                   #     tags$li(tags$span(style = "color: blue;", "n_max:"),"Proportion of the sample assigned to the largest class"),
-                   #     tags$li(tags$span(style = "color: blue;", "BLRT:"),"Bootstrapped likelihood test"),
-                   #   )
-                   # )
+                   DTOutput("fit_table")
                    )
         )),
-        br(),
-        # column(6, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
-        #        downloadButton("download_plot_AicBic_LPA", "Download Plot AIC/BIC (.png)",),
-        #        plotOutput("fit_plot")),
-        # 
-        # 
-        # column(6, h5(icon("sliders-h"), "Entropy & Smallest Class Size"), 
-        #        downloadButton("download_plot_entropy_LPA", "Download Plot Entropy & Class Size (.png)"),
-        #        plotOutput("entropy_plot")
-        #        ),
-      column(6, h5(icon("chart-bar"), "BIC Comparison"), 
-             plotOutput("fit_bic"), height = "200px"),
-      column(6, h5(icon("chart-bar"), "AIC Comparison"), 
-             plotOutput("fit_aic"),height = "200px"),
-      column(6, h5(icon("chart-bar"), "Entropy Comparison"), 
-             plotOutput("fit_entropy"),height = "200px"),
-      column(6, h5(icon("chart-bar"), "Min. Class Size Comparison"), 
-             plotOutput("fit_class_size"),height = "200px")
+        tags$div(
+          style = "margin-top: 0px; font-size: 11px; color: #6c757d;",
+          tags$b("Note:"),
+          tags$ul(
+            tags$li(tags$span(style="color:blue;","Model selection: "),
+                    "The selected LPA model defines the variance–covariance structure across profiles and influences interpretability and classification quality."),
+            tags$li(tags$span(style="color:blue;","Model 1: "),
+                    "Equal variances, covariances fixed to zero (most parsimonious)."),
+            tags$li(tags$span(style="color:blue;","Model 2: "),
+                    "Varying variances, covariances fixed to zero (allows different variability)."),
+            tags$li(tags$span(style="color:blue;","Model 3: "),
+                    "Equal variances and covariances across profiles."),
+            tags$li(tags$span(style="color:blue;","Model 6: "),
+                    "Varying variances and covariances (most flexible, higher risk of overfitting)."),
+            tags$li(tags$span(style="color:blue;","BIC / AIC: "),
+                    "Lower values indicate better relative model fit."),
+            tags$li(tags$span(style="color:blue;","Entropy: "),
+                    "Classification accuracy (values close to 1 indicate clear profiles)."),
+            tags$li(tags$span(style="color:blue;","prob_min / prob_max: "),
+                    "Minimum and maximum average posterior probabilities for assigned profiles."),
+            tags$li(tags$span(style="color:blue;","n_min / n_max: "),
+                    "Proportion of the sample in the smallest and largest profiles."),
+            tags$li(tags$span(style="color:blue;","BLRT: "),
+                    "Significant results favor the k-profile model over the k−1 model.")
+          )
+        ),
+      column(3, #h5(icon("chart-bar"), "BIC Comparison"), 
+             plotOutput("fit_bic"), height = "40px"),
+      column(3, #h5(icon("chart-bar"), "AIC Comparison"), 
+             plotOutput("fit_aic"),height = "40px"),
+      column(3, #h5(icon("chart-bar"), "Entropy Comparison"), 
+             plotOutput("fit_entropy"),height = "40px"),
+      column(3, #h5(icon("chart-bar"), "Min. Class Size Comparison"), 
+             plotOutput("fit_class_size"),height = "40px"),
+      br(),br(), br()
       )
+      
     ),
     
     # --- TAB 3: Best Model ----
@@ -138,7 +156,7 @@ lpa_ui <- function(project) {
             style = "text-align:center;",  # pusatkan kontainer
             div(
               style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
-              h5(icon("info-circle"), "Class Size and Summary Table"), 
+              h5(icon("info-circle"), "Estimated Profile Parameters: Class Size & Variabel Means (Variances)"), 
               DTOutput("summary_table") 
               )
           )
@@ -149,8 +167,49 @@ lpa_ui <- function(project) {
     # --- TAB 4: Summary & Report ----
     tabPanel(
       title = tagList(icon("file-alt"), "Summary & Report"),
-      h5("Profile Classification Data"),
+      h4("Profile Classification Data"),
       DTOutput("profile_table"),
+      br(),
+      column(12,
+        h4("Compare Profiles"),
+        column(3, uiOutput("var_x_ui")),
+        column(3, uiOutput("var_y_ui")),
+        column(3,
+               selectInput(
+                 "plot_type", "Plot Type:",
+                 choices = c("Line" = "line", "Bar" = "bar"),
+                 selected = "bar"
+               )
+        ),
+        column(3,
+               checkboxInput(
+                 "check_anova",
+                 label = "Compare Profiles",
+                 value = FALSE
+               )
+        )
+      ),
+      br(),
+      # =========================
+      # ROW 2: MAIN OUTPUT
+      # =========================
+      column(12,
+        column(6, plotOutput("cross_latent", height = "420px")),
+        column(6, uiOutput("anova_lpa_ui")),
+        br()
+      ),
+      column(12,
+             h4("Explore Other Variables by Profile"),
+             checkboxInput(
+               "crosstab_result",
+               label = "Explore variable",
+               value = FALSE
+             ),
+             column(12, uiOutput("crosstab_ui")),
+             br(),
+             br(),
+             br()
+      )
     ),
     tabPanel(
       title = tagList(icon("info-circle"), "About"),

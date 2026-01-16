@@ -201,29 +201,8 @@ styleCSS <- tags$head(
     letter-spacing: 1px;
   }
 
-.app-name {
-    font-size: 36px;
-    font-weight: 900;
-    margin-top: 1px;
-    color: transparent;
-    -webkit-text-fill-color: darkblue; 
-    -webkit-background-clip: text;
-
-    /* Jika nanti mau ditambah gradient */
-    background: none;
-
-    /* OUTLINE PUTIH */
-    text-shadow:
-        -2px -2px 3px #ffffff,
-         2px -2px 3px #ffffff,
-        -2px  2px 3px #ffffff,
-         2px  2px 3px #ffffff,
-
-        /* SHADOW GELAP + DEPTH */
-        0 0 5px rgba(0,0,0,0.45),
-        0 0 10px rgba(0,0,0,0.35),
-        0 0 15px rgba(0,0,0,0.25);
-}
+.app-name { font-size:36px; font-weight:900; margin-top:1px; color:transparent; -webkit-text-fill-color:black; -webkit-background-clip:text; background:none; }
+.app-name { text-shadow:-2px -2px 3px #fff,2px -2px 3px #fff,-2px 2px 3px #fff,2px 2px 3px #fff,0 0 5px rgba(0,0,0,.45),0 0 10px rgba(0,0,0,.35),0 0 15px rgba(0,0,0,.25); }
 
   .subtitle{
     font-size: 13px;
@@ -339,12 +318,20 @@ styleCSS <- tags$head(
   .quad-card:hover {
     transform: scale(1.05);
   }
+#card_lca { background: #eef3ff; border: 2px solid #c7d4ff; }   /* Blue */
+#card_lpa { background: #edf7f6; border: 2px solid #c6e6e2; }   /* Teal */
+#card_fa  { background: #f3effa; border: 2px solid #d9cff0; }   /* Purple */
+#card_lta { background: #fbeef2; border: 2px solid #f2cdd8; }   /* Rose */
+/* Warna & tema masing-masing card */
+#card_lpa .project-icon { background: #dff1ee; color: #138f87; } /* Teal */
+#card_lca .project-icon { background: #dde6ff; color: #2a55e6; } /* Blue */
+#card_fa  .project-icon { background: #e6e0f5; color: #6b4cc2; } /* Purple */
+#card_lta .project-icon { background: #f6dde6; color: #c23b63; } /* Rose */
 
-  /* Warna & tema masing-masing card */
-  #card_lpa .project-icon { background: #ffeedb; color: #ff8c00; }
-  #card_lca .project-icon { background: #dae7ff; color: #0b69ff; }
-  #card_fa  .project-icon { background: #ede5ff; color: #6b49ff; }
-  #card_lta .project-icon { background: #def3e3; color: #1aaf5d; }
+#card_lca .btn-pill { background: #2a55e6; }  /* Blue */
+#card_lpa .btn-pill { background: #138f87; }  /* Teal */
+#card_fa  .btn-pill { background: #6b4cc2; }  /* Purple */
+#card_lta .btn-pill { background: #c23b63; }  /* Rose */
 
   .project-title {
     font-size: clamp(12px, 1.5vw, 27px);
@@ -369,10 +356,7 @@ styleCSS <- tags$head(
     border-radius: 12px;
   }
 
-  #card_lca { background: #e7f1ff; border: 2px solid #cfe6ff; }
-  #card_lpa { background: #fff4e6; border: 2px solid #ffe9cf; }
-  #card_fa  { background: #f6f0ff; border: 2px solid #e9e0ff; }
-  #card_lta { background: #f0f7f0; border: 2px solid #d8efd8; }
+
 
   .btn-pill {
     display: block !important;
@@ -386,11 +370,6 @@ styleCSS <- tags$head(
     font-size: clamp(9px, 1vw, 18px);
     transition: .1s;
   }
-
-  #card_lca .btn-pill { background: #0b69ff; }
-  #card_lpa .btn-pill { background: #ff8c00; }
-  #card_fa  .btn-pill { background: #6b49ff; }
-  #card_lta .btn-pill { background: #1aaf5d; }
 
   .btn-pill:hover {
     opacity: .85;

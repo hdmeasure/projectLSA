@@ -4,10 +4,8 @@ homepage_ui <- function() {
     div(class="landing",
         div(class="hero",
             div(class="welcome","WELCOME TO"),
-            div(
-              class = "app-name",
-              "projectLSA"
-            ),
+            div( class = "app-name", "projectLSA" ),            
+            
             tags$p(
               style = "font-size: 12px; margin-top: 2px; color: darkblue;",
               "A comprehensive and interactive R Shiny application designed to support Latent Structure Analysis (LSA) through an intuitive graphical interface for running analyses, visualizing models, and interpreting results—all without requiring users to write any code."
@@ -24,17 +22,17 @@ homepage_ui <- function() {
   ",
               HTML(
                 '<strong>How to Cite:</strong> 
-                 Djidu, H., Retnawati, H., Hadi, S., Haryanto (2025). <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>. 
-                 <a href="https://doi.org/10.32614/CRAN.package.projectLSA" target="_blank">https://doi.org/10.32614/CRAN.package.projectLSA/</a>'
+                 Djidu, H., Retnawati, H., Hadi, S., Haryanto (2026). <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>. 
+                 <a href="https://doi.org/10.32614/CRAN.package.projectLSA" target="_blank">https://doi.org/10.32614/CRAN.package.projectLSA/.</a>
+                R package version 0.0.6.'
               )
             )
             
         ),
         br(),
-        div(class="subtitle","Choose one project LSA you want to work on:")
+        div(class="subtitle","Choose one projectLSA you want to work on:")
     ),
     br(),
-    
     div(class="quad-container",
         div(class="axis-label x-top","Latent = categorical"),
         div(class="axis-label x-bottom","Latent = scale"),

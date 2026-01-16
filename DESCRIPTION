@@ -29,17 +29,20 @@ Authors@R:
         comment = c(ORCID = "0000-0003-3322-904X")
       )
     )
-Description: Provides an interactive Shiny-based toolkit for conducting latent structure analyses, including Latent Profile Analysis (LPA), Latent Class Analysis (LCA), Latent Trait Analysis (LTA/IRT), Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Structural Equation Modeling (SEM). The implementation is grounded in established methodological frameworks: LPA is supported through 'tidyLPA' (Rosenberg et al., 2018) <doi:10.21105/joss.00978>, LCA through 'poLCA' (Linzer & Lewis, 2011), LTA/IRT via 'mirt' (Chalmers, 2012) <doi:10.18637/jss.v048.i06>, and EFA via 'psych' (Revelle, 2025). SEM and CFA functionalities build upon the 'lavaan' framework (Rosseel, 2012) <doi:10.18637/jss.v048.i02>. Users can upload datasets or use built-in examples, fit models, compare fit indices, visualize results, and export outputs without programming.
+Description: Provides an interactive Shiny-based toolkit for conducting latent structure analyses, including Latent Profile Analysis (LPA), Latent Class Analysis (LCA), Latent Trait Analysis (LTA/IRT), Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Structural Equation Modeling (SEM). The implementation is grounded in established methodological frameworks: LPA is supported through 'tidyLPA' (Rosenberg et al., 2018) <doi:10.21105/joss.00978>, LCA through 'poLCA' (Linzer & Lewis, 2011) <doi:10.32614/CRAN.package.poLCA> & 'glca' (Kim & Kim, 2024) <doi:10.32614/CRAN.package.glca>, LTA/IRT via 'mirt' (Chalmers, 2012) <doi:10.18637/jss.v048.i06>, and EFA via 'psych' (Revelle, 2025). SEM and CFA functionalities build upon the 'lavaan' framework (Rosseel, 2012) <doi:10.18637/jss.v048.i02>. Users can upload datasets or use built-in examples, fit models, compare fit indices, visualize results, and export outputs without programming.
 License: MIT + file LICENSE
 Depends:
     R (>= 4.0.0)
 Encoding: UTF-8
 Imports:
     colourpicker,
+    data.table
     dplyr,
     DT,
     ggiraph,
     ggplot2,
+    glca,
+    haven,
     lavaan,
     mclust,
     mirt,
@@ -55,6 +58,7 @@ Imports:
     semTools,
     shiny,
     shinyWidgets,
+    stats,
     stringr,
     tibble,
     tidyr,

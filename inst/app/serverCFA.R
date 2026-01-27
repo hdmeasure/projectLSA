@@ -237,7 +237,7 @@ server_cfa <- function(input, output, session) {
                            text = 'Export Excel',
                            filename = paste0('Fit Model Comparison')
                          )),
-                       pageLength = 15,
+                       pageLength = 30,
                        columnDefs = list(list(className = 'dt-center', targets = 1:10))
                      )) %>%
              # --- Tetap: style kolom Status dengan warna ---

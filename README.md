@@ -97,24 +97,18 @@ upload, built-in datasets, interactive plots, and reporting features.
 
 ------------------------------------------------------------------------
 
-## Example Screenshots
+## Live Demo (Shiny Application)
 
-### LPA (Latent Profile Analysis)
+All features of **projectLSA** can be explored through an interactive
+Shiny web application.
 
-![LPA3](man/figures/LPA3.png) ![LPA4](man/figures/LPA4.png)
+👉 **Launch the live application:**  
+<https://measure.shinyapps.io/ProjectLSA/>
 
-### LCA (Latent Class Analysis)
-
-![LCA2](man/figures/LCA2.png) ![LCA3](man/figures/LCA3.png)
-
-### CFA (Confirmatory Factor Analysis) & SEM (Structural Equation Modelling)
-
-![CFA4](man/figures/CFA4.png) ![CFA7](man/figures/CFA7.png)
-![SEM](man/figures/SEM.png)
-
-### LTA (Latent Trait Analysis/ IRT)
-
-![LTA3](man/figures/LTA3.png) ![LTA6](man/figures/LTA6.png)
+The web interface provides access to Latent Profile Analysis (LPA),
+Latent Class Analysis (LCA), Confirmatory Factor Analysis (CFA),
+Structural Equation Modeling (SEM), and Latent Trait Analysis (IRT),
+allowing users to explore the full workflow without local installation.
 
 ------------------------------------------------------------------------
 

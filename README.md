@@ -5,10 +5,13 @@
 
 [![CRAN
 status](https://www.r-pkg.org/badges/version/projectLSA)](https://CRAN.R-project.org/package=projectLSA)
+[![CRAN
+release](https://www.r-pkg.org/badges/last-release/projectLSA)](https://CRAN.R-project.org/package=projectLSA)
 [![Downloads](https://cranlogs.r-pkg.org/badges/projectLSA)](https://cranlogs.r-pkg.org/badges/projectLSA)
 [![Total
 Downloads](https://cranlogs.r-pkg.org/badges/grand-total/projectLSA)](https://cranlogs.r-pkg.org/badges/grand-total/projectLSA)
 
+[![R-CMD-check](https://github.com/hdmeasure/projectLSA/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/hdmeasure/projectLSA/actions/workflows/R-CMD-check.yaml)
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Lifecycle:

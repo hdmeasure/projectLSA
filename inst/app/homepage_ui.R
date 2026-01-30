@@ -1,30 +1,23 @@
 homepage_ui <- function() {
+  
   fluidPage(
 
     div(class="landing",
         div(class="hero",
             div(class="welcome","WELCOME TO"),
             div( class = "app-name", "projectLSA" ),            
-            
-            tags$p(
-              style = "font-size: 12px; margin-top: 2px; color: darkblue;",
-              "A comprehensive and interactive R Shiny application designed to support Latent Structure Analysis (LSA) through an intuitive graphical interface for running analyses, visualizing models, and interpreting results—all without requiring users to write any code."
-            ),
             div(
-              style = "
-              background-color: #f5f5f5;
-              border-left: 4px solid #4c8bf5;
-              padding: 3px 12px;
-              border-radius: 6px;
-              margin-top: 2px;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-              font-size: 12px;
-  ",
+
+              class = "badge-appinfo",
+              tags$p(
+                style = "font-size: 12px; margin-top: 2px;",
+                "A comprehensive and interactive R Shiny application designed to support Latent Structure Analysis (LSA) through an intuitive graphical interface for running analyses, visualizing models, and interpreting results—all without requiring users to write any code."
+              ),
               HTML(
                 '<strong>How to Cite:</strong> 
                  Djidu, H., Retnawati, H., Hadi, S., Haryanto (2026). <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>. 
                  <a href="https://doi.org/10.32614/CRAN.package.projectLSA" target="_blank">https://doi.org/10.32614/CRAN.package.projectLSA/.</a>
-                R package version 0.0.6.'
+                R package (Version 0.0.7).'
               )
             )
             

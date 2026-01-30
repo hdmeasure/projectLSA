@@ -45,7 +45,39 @@ ui <- fluidPage(
 )
 # ==== Server =====
 server <- function(input, output, session) {
-
+  observeEvent(TRUE, {
+    showModal(modalDialog(
+      title = NULL,
+      div(
+        style="text-align:center; line-height:1.6;",
+        tags$img(src="logoProjectLSA.png", height="70px"),
+        tags$h3("Welcome to projectLSA"),
+        tags$p(
+          "projectLSA is an interactive R Shiny application designed to support ",
+          "latent structure analysis for research & teaching purposes."
+        ),
+      
+        HTML(
+          "
+         If you use this application in academic or research work, please cite it as follows:<br>
+         <strong>In-text citation:</strong>
+         <span style='color:#2563eb;'>(Djidu et al., 2026)</span><br><br>
+         <strong>Reference:</strong><br>
+         Djidu, H., Retnawati, H., Hadi, S., &amp; Haryanto. (2026).
+         <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>.
+         <a href='https://doi.org/10.32614/CRAN.package.projectLSA' target='_blank'>
+         https://doi.org/10.32614/CRAN.package.projectLSA</a>.
+         R package (Version 0.0.7)."
+        )
+      ),
+      footer = modalButton("START"),
+      easyClose = TRUE,
+      size = "s"
+    ))
+  }, once = TRUE)
+  
+  
+  
   # === reactive value to save current project ===
   project <- reactiveVal("home")
 

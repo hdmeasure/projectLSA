@@ -52,7 +52,7 @@ server_lpa <- function(input, output, session) {
     }
     
     div(
-      style = "font-size: 13px; line-height: 1.4; color: #333;",
+      class = "badge-info",
       HTML(desc_html)
     )
   })

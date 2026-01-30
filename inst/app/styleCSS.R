@@ -121,8 +121,8 @@ styleCSS <- tags$head(
 .dt-button {
   padding: 4px 10px !important;    
   font-size: 9px !important;        
-  border-radius: 6px !important; 
-  background-color: darkcyan !important;
+  border-radius: 4px !important; 
+  background-color: black !important;
   color: white !important;
   border: none !important;
   font-weight: 600 !important;
@@ -233,29 +233,25 @@ styleCSS <- tags$head(
   .quad-container::after {
     content: '';
     position: absolute;
-    background: blue;
     z-index: 1;
   }
 
-  .quad-container::before {
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 2px;
-  }
+  
+.quad-container::before{
+  top:50%;left:0;width:100%;height:3px;
+  background:linear-gradient(90deg,blue,red);
+}
 
-  .quad-container::after {
-    left: 50%;
-    top: 0;
-    width: 2px;
-    height: 100%;
-  }
+.quad-container::after{
+  left:50%;top:0;width:3px;height:100%;
+  background:linear-gradient(180deg,green,red);
+}
 
   .axis-label {
     position: absolute;
     font-weight: bold;
-    color: blue;
-    font-size: clamp(11px, 2vw, 16px);
+    color: black;
+    font-size: clamp(12px, 2vw, 14px);
     background: white;
     border-radius: 6px;
     z-index: 5;
@@ -295,7 +291,7 @@ styleCSS <- tags$head(
   }
 
   .center-logo img {
-    width: clamp(70px, 2vw, 200px);
+    width: clamp(100px, 2vw, 200px);
     height: auto;
     border-radius: 50%;
   }
@@ -303,7 +299,7 @@ styleCSS <- tags$head(
   .quad-card {
     width: 90%;
     height: 80%;
-    border-radius: 16px;
+    border-radius: 21px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     padding: 1.5vw;
     display: flex;
@@ -312,7 +308,7 @@ styleCSS <- tags$head(
     align-items: center;
     text-align: center;
     z-index: 2;
-    transition: transform .2s;
+    transition: transform .5s;
   }
 
   .quad-card:hover {
@@ -503,6 +499,63 @@ styleCSS <- tags$head(
       transform-origin: center top;
     }
   }
+  
+.badge-warning{
+  background:#fee2e2;
+  border-left:4px solid #ef4444;
+  color:#7f1d1d;
+  padding:8px 12px;
+  border-radius:5px;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.badge-info{
+  background:#e0e7ff;
+  border-left:4px solid #3b82f6;
+  color:#1e3a8a;  
+  padding:10px 14px;
+  border-radius:4px;
+  font-size:13px;
+  line-height:1.6;
+}
+
+.badge-appinfo{
+  background:#fffef9;            /* ivory lembut */
+  border-left:4px solid #334155; /* slate blue soft */
+  color:#374151;                 /* dark gray (BUKAN hitam) */
+  padding:10px 14px;
+  border-radius:4px;
+  font-size:13px;
+  line-height:1.6;
+}
+
+
+
+/* Lebar modal 80% layar */
+.modal-dialog{
+  width:80%;
+  max-width:80%;
+}
+
+/* Background + border modal */
+.modal-content{
+  background:#fffdf7;        /* ivory */
+  border:2px solid #1e293b;  /* biru kehitaman */
+  border-radius:16px;
+  box-shadow:0 12px 30px rgba(15,23,42,.25);
+}
+
+/* Header & footer lebih bersih */
+.modal-header, .modal-footer{
+  border:none;
+}
+
+.modal.fade .modal-dialog{
+  transform:translateY(-20px);
+  transition:all .3s ease;
+}
+
   
   "))
 )

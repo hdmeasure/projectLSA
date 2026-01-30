@@ -1,0 +1,12 @@
+name: ProjectLSA
+title: projectLSA
+username: hasandjidu
+account: hasandjidu
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15760343
+bundleId: 11514843
+url: https://measure.shinyapps.io/ProjectLSA/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

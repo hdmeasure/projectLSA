@@ -71,8 +71,11 @@ lca_ui <- function(project) {
                    DTOutput("fit_table_lca")
                  )
                ),
+               br(),
                tags$div(
                  style = "margin-top: 0px; font-size: 12px; color: #6c757d;",
+                 class = "badge-info",
+                
                  tags$b("Note:"),
                  tags$ul(
                    tags$li(tags$span(style = "color: blue;", "AIC:"), 

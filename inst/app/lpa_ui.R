@@ -84,8 +84,10 @@ lpa_ui <- function(project) {
                    DTOutput("fit_table")
                    )
         )),
+        br(),
         tags$div(
           style = "margin-top: 0px; font-size: 11px; color: #6c757d;",
+          class = "badge-info",
           tags$b("Note:"),
           tags$ul(
             tags$li(tags$span(style="color:blue;","Model selection: "),

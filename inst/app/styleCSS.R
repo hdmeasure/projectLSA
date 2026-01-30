@@ -532,10 +532,9 @@ styleCSS <- tags$head(
 
 
 
-/* Lebar modal 80% layar */
 .modal-dialog{
-  width:80%;
-  max-width:80%;
+  width:70%;
+  max-width:70%;
 }
 
 /* Background + border modal */
@@ -551,10 +550,16 @@ styleCSS <- tags$head(
   border:none;
 }
 
-.modal.fade .modal-dialog{
-  transform:translateY(-20px);
-  transition:all .3s ease;
+.modal.fade .modal-dialog {
+  transform: translateY(-30px) scale(1);
+  transition: transform 1.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.modal.show .modal-dialog {
+  transform: translateY(0) scale(1);
+}
+
+
 
   
   "))

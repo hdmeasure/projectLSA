@@ -53,6 +53,14 @@ This opens the full Shiny application, including all LSA modules, data upload, b
 
 ---
 
+## Video Tutorial
+
+[![projectLSA – Installation and Quick Start](https://img.youtube.com/vi/Rqj_ZPSXVaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=Rqj_ZPSXVaA)
+
+🎬 *Click the image to watch the installation and quick-start tutorial for **projectLSA***.
+
+---
+
 ## Features
 
 ### ✔ Latent Profile Analysis (LPA)

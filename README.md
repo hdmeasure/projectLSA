@@ -59,6 +59,16 @@ upload, built-in datasets, interactive plots, and reporting features.
 
 ------------------------------------------------------------------------
 
+## Video Tutorial
+
+[![projectLSA – Installation and Quick
+Start](https://img.youtube.com/vi/Rqj_ZPSXVaA/maxresdefault.jpg)](https://www.youtube.com/watch?v=Rqj_ZPSXVaA)
+
+🎬 *Click the image to watch the installation and quick-start tutorial
+for **projectLSA***.
+
+------------------------------------------------------------------------
+
 ## Features
 
 ### ✔ Latent Profile Analysis (LPA)

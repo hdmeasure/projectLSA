@@ -72,7 +72,7 @@ server <- function(input, output, session) {
       ),
       footer = modalButton("START"),
       easyClose = TRUE,
-      size = "s"
+      size = "l"
     ))
   }, once = TRUE)
   

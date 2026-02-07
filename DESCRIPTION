@@ -1,6 +1,6 @@
 Package: projectLSA
 Title: Shiny Application for Latent Structure Analysis with a Graphical User Interface
-Version: 0.0.7
+Version: 0.0.8
 Authors@R:
     c(
       person(
@@ -55,7 +55,6 @@ Imports:
     rlang,
     semPlot,
     semptools,
-    semTools,
     shiny,
     shinyWidgets,
     stats,

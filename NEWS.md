@@ -1,3 +1,13 @@
+# projectLSA 0.0.8
+* Removed dependency on the semTools package.
+* Re-implemented Average Variance Extracted (AVE), Composite Reliability (CR),
+  and Heterotrait–Monotrait Ratio (HTMT) internally using lavaan-based
+  computations.
+* The HTMT implementation follows the default HTMT2 formulation
+  (geometric mean) and produces results identical to semTools::htmt().
+* No changes to the public API or user-facing outputs.
+* Minor internal refactoring of the Shiny server logic for CFA diagnostics.
+
 # projectLSA 0.0.7
 * Minor refinements to the Shiny application codebase to support the new exploratory functionality
 

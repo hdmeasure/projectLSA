@@ -531,12 +531,6 @@ styleCSS <- tags$head(
 }
 
 
-
-.modal-dialog{
-  width:70%;
-  max-width:70%;
-}
-
 /* Background + border modal */
 .modal-content{
   background:#fffdf7;        /* ivory */
@@ -559,8 +553,5 @@ styleCSS <- tags$head(
   transform: translateY(0) scale(1);
 }
 
-
-
-  
   "))
 )

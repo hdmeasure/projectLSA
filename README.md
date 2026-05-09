@@ -124,11 +124,33 @@ allowing users to explore the full workflow without local installation.
 
 ## Citation
 
-If you use projectLSA in publications, please cite:
+If you use projectLSA in publications, please cite the following:
 
-Djidu, H., Retnawati, H., Hadi, S., & Haryanto (2026). *projectLSA:Shiny
-application for latent structure analysis with a graphical user
-interface. <https://doi.org/10.32614/CRAN.package.projectLSA>*
+**Journal Article (primary):**
+
+> Djidu, H., Retnawati, H., Hadi, S., & Haryanto. (2026). projectLSA: A
+> Shiny Application for Integrated Latent Structure Analysis. *Applied
+> Psychological Measurement*.
+> <https://doi.org/10.1177/01466216261446305>
+
+**R Package:**
+
+> Djidu, H., Retnawati, H., Hadi, S., & Haryanto (2026). *projectLSA: R
+> Shiny application for latent structure analysis with a graphical user
+> interface*. R package.
+> <https://doi.org/10.32614/CRAN.package.projectLSA>
+
+### BibTeX
+
+``` bibtex
+@article{Djidu2026projectLSA,
+  title     = {projectLSA: A Shiny Application for Integrated Latent Structure Analysis},
+  author    = {Djidu, Hasan and Retnawati, Heri and Hadi, Samsul and Haryanto},
+  journal   = {Applied Psychological Measurement},
+  year      = {2026},
+  doi       = {10.1177/01466216261446305}
+}
+```
 
 ------------------------------------------------------------------------
 

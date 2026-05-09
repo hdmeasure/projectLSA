@@ -124,22 +124,23 @@ output$data_preview_lca <- DT::renderDT({
   df <- data_lca() %>% dplyr::select(input$vars_lca)
   numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
   
-  DT::datatable(df,extensions = 'Buttons',
-                options = list(scrollX = TRUE, dom = 'Brtp',
-                               buttons = list(
-                                 list(
-                                   extend = 'csv',
-                                   text = 'Export CSV',
-                                   filename = paste0('Data LCA')  
-                                 ),
-                                 list(
-                                   extend = 'excel',
-                                   text = 'Export Excel',
-                                   filename = paste0('Data LCA')
-                                 ))),
+  DT::datatable(df,#extensions = 'Buttons',
+                options = list(scrollX = TRUE, dom = 'rtp',
+                               # buttons = list(
+                               #   list(
+                               #     extend = 'csv',
+                               #     text = 'Export CSV',
+                               #     filename = paste0('Data LCA')  
+                               #   ),
+                               #   list(
+                               #     extend = 'excel',
+                               #     text = 'Export Excel',
+                               #     filename = paste0('Data LCA')
+                               #   ))
+                               ),
                 rownames = TRUE) %>% 
     formatRound(columns = numeric_cols, digits = 0)
-}, server = FALSE)
+}, server = TRUE)
 
 
 output$data_summary_lca <- DT::renderDT({

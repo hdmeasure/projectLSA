@@ -1,6 +1,6 @@
 Package: projectLSA
 Title: Shiny Application for Latent Structure Analysis with a Graphical User Interface
-Version: 0.0.8
+Version: 0.0.9
 Authors@R:
     c(
       person(
@@ -39,13 +39,18 @@ Imports:
     data.table,
     dplyr,
     DT,
+    flextable,
     ggiraph,
     ggplot2,
     glca,
     haven,
+    kableExtra,
+    knitr,
     lavaan,
+    magick,
     mclust,
     mirt,
+    officer,
     plotly,
     poLCA,
     psych,
@@ -53,6 +58,8 @@ Imports:
     readr,
     readxl,
     rlang,
+    rmarkdown,
+    scales,
     semPlot,
     semptools,
     shiny,
@@ -65,9 +72,7 @@ Imports:
     tidyverse,
     viridisLite
 Suggests:
-    knitr,
-    pkgdown,
-    rmarkdown
+    pkgdown
 LazyData: false
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

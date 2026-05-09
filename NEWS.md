@@ -1,3 +1,23 @@
+# projectLSA 0.0.9
+
+## CFA/SEM Reporting Module
+* Added HTML report generation for CFA and SEM models via R Markdown, including
+  model summary narrative, fit index comparison tables, and side-by-side path
+  diagrams (initial vs. final model).
+* Report automatically detects whether the fitted model is CFA or SEM based on
+  the presence of regression paths (`~` operator).
+* Report supports configurable decimal separator (period or comma) for
+  international conventions.
+
+## Path Plot Enhancements
+* Added five new color palettes: Vibrant, Monochrome, Sunset, Rose, and Mint.
+* Decimal separator setting now also applies to edge labels on the path diagram.
+
+## UI & UX Improvements
+* Citation copy and download buttons aligned and centered on the homepage.
+* New runtime dependencies added to Imports: `kableExtra`, `knitr`, `magick`,
+  `officer`, `rmarkdown`, `scales`.
+
 # projectLSA 0.0.8
 * Removed dependency on the semTools package.
 * Re-implemented Average Variance Extracted (AVE), Composite Reliability (CR),

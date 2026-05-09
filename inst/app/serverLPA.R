@@ -104,7 +104,7 @@ server_lpa <- function(input, output, session) {
                                ))),
       rownames = T) %>% 
       formatRound(columns = numeric_cols, digits = 2)
-  }, server = FALSE)
+  }, server = TRUE)
   
   output$data_summary_lpa <- DT::renderDT({
     req(data_user(), input$selected_vars)

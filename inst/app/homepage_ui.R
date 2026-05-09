@@ -8,16 +8,19 @@ homepage_ui <- function() {
             div( class = "app-name", "projectLSA" ),            
             div(
 
-              class = "badge-appinfo",
-              tags$p(
-                style = "font-size: 12px; margin-top: 2px;",
-                "A comprehensive and interactive R Shiny application designed to support Latent Structure Analysis (LSA) through an intuitive graphical interface for running analyses, visualizing models, and interpreting results—all without requiring users to write any code."
-              ),
               HTML(
-                '<strong>How to Cite:</strong> 
+                '<div style="text-align: left; padding: 8px; background-color: rgba(255,255,255,0.1); border-left: 3px solid #ccc; margin-top: 5px; font-size: 10px; color: #555;">
+                 <strong>How to Cite:</strong><br>
+                 Djidu, H., Retnawati, H., Hadi, S., &amp; Haryanto. (2026). <em>projectLSA: A Shiny Application for Integrated Latent Structure Analysis</em>. Applied Psychological Measurement. 
+                 <a href="https://doi.org/10.1177/01466216261446305" target="_blank" style="color: #0077dd;">https://doi.org/10.1177/01466216261446305</a><br>
                  Djidu, H., Retnawati, H., Hadi, S., Haryanto (2026). <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>. 
-                 <a href="https://doi.org/10.32614/CRAN.package.projectLSA" target="_blank">https://doi.org/10.32614/CRAN.package.projectLSA/.</a>
-                R package (Version 0.0.7).'
+                 <a href="https://doi.org/10.32614/CRAN.package.projectLSA" target="_blank" style="color: #0077dd;">https://doi.org/10.32614/CRAN.package.projectLSA</a>. R package.
+                 </div>'
+              ),
+              br(),
+              div(style = "display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 5px;",
+                  downloadButton("download_ris_home", "Download RIS", class = "btn btn-info btn-sm", style = "margin: 0 !important;"),
+                  actionButton("btn_donate_home", "Support projectLSA", icon = icon("heart"), class = "btn btn-danger btn-sm btn-glow", style = "margin: 0 !important;", onclick="$(this).removeClass('btn-glow');")
               )
             )
             

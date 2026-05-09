@@ -28,6 +28,9 @@ cfa_ui <- function(project) {
              selectInput("cfa_missing", "Missing data:",
                          choices = c("Listwise" = "listwise", "Pairwise" = "pairwise", "FIML" = "fiml"),
                          selected = "listwise"),
+             radioButtons("cfa_dec_sep", "Decimal Separator:", 
+                          choices = c("English (.)" = ".", "Indonesian (,)" = ","),
+                          selected = ".", inline = TRUE),
              checkboxInput("cfa_std_est", "Standardized estimates", TRUE),
              checkboxInput("htmt_opt", "Heterotrait–Monotrait Ratio (HTMT)", FALSE),
              
@@ -35,14 +38,7 @@ cfa_ui <- function(project) {
                           class = "btn btn-success btn-block",
                           style = "width: 100% !important;"),
              br(),
-             tags$h5("Exports", style = "color: #2c3e50;"),
-             downloadButton("download_measures", "Fit Measures (CSV)", class = "btn btn-primary btn-sm"),
-             br(),
-             downloadButton("download_loadings", "Loadings (CSV)", class = "btn btn-primary btn-sm"),
-             br(),
-             downloadButton("download_lavaan", "Lavaan Summary (txt)", class = "btn btn-primary btn-sm"),
-             br(),
-             downloadButton("download_scores_cfa", "Factor Score (CSV)", class = "btn btn-primary btn-sm"),
+             actionButton("btn_export_modal", "Export Report (HTML)", class = "btn btn-warning btn-block btn-glow", style = "width: 100%; font-weight: bold;", onclick="$(this).removeClass('btn-glow');")
            )
     ), 
     column(width = 9,
@@ -66,6 +62,12 @@ cfa_ui <- function(project) {
                br(), DTOutput("loadings_table")
                ),
              tabPanel(
+               title = tagList(icon("chart-bar"), "Variances"),
+               br(), 
+               uiOutput("variance_warning"),
+               DTOutput("variances_table")
+               ),
+             tabPanel(
                title = tagList(icon("calculator"), "Factor Scores"),
                br(),
                DTOutput("fscores_cfa")
@@ -75,78 +77,73 @@ cfa_ui <- function(project) {
                title = tagList(icon("project-diagram"), "Path Plot"),
                       br(),
                       fluidRow(
-                        column(4,
+                        column(3,
                                tags$h5("Plot Settings", style = "color: #2c3e50;"),
-    
-                               column(6,
-                               numericInput("plotwidth", "Plot Width:", value = 5, min = 1, max = 15, step = 0.3,
-                                            width = "100%")),
-                               column(6,
-                               numericInput("plotheight", "Plot Height:", value = 5, min = 1, max = 20, step = 0.3,
-                                            width = "100%")),
-                               column(6,
-                               selectInput("plot_style", "Style:",
-                                           choices = c("lisrel", "ram", "mx", "OpenMx"),
-                                           selected = "lisrel")),
-                               column(6,
-                               selectInput("plot_layout", "Layout:",
-                                           choices = c("tree", "tree2", "tree3", "spring", "circle", "circle2"),
-                                           selected = "tree2")),
-                               column(4,
-                               numericInput("plot_rotation", "Rotation:", value = 4, min = 1, max = 4, step = 1, 
-                                            width = "100%")),
-                               column(8,
-                               textInput("bifactor", "Bfactor:", value = NULL, placeholder = "General Factor (Bifactor Model Only)",
-                                         width = "100%")),
-                               tags$hr(),
-                               tags$h6("Node Sizes", style = "color: #2c3e50;"),
-                               fluidRow(
-                                 column(4, numericInput("plot_nodesize_lat", "Lat:", value = 5, min = 3, max = 15, step = 0.3,
-                                                        width = "100%")),
-                                 column(4, numericInput("plot_nodesize_man", "Man_width:", value = 5, min = 2, max = 10, step = 0.3,
-                                                        width = "100%")),
-                                 column(4, numericInput("plot_nodesize_man2", "Man_heigth:", value = 2.5, min = 1, max = 10, step = 0.3,
-                                                        width = "100%"))
-                               ),
-                               column(6,
-                                      numericInput("plot_edge_label_size", "Label size:", value = 0.75, min = 0.5, max = 2, step = 0.1,
-                                                   width = "100%")),
-                               column(6,
-                                      numericInput("edgewidth", "Edge Width:", value = 0.3, min = 0.3, max = 5, step = 0.1,
-                                                   width = "100%")),
                                
-                               tags$hr(),
-                               tags$h5("Display Options", style = "color: #2c3e50;"),
-                               checkboxInput("plot_standardized", "Standardized estimates", TRUE),
-                               checkboxInput("plot_residuals", "Show residuals", FALSE),
-                               checkboxInput("plot_exoCov", "Show exogenous covariances", FALSE),
-                               tags$hr(),
-                               # Di bagian UI - tambahkan di panel Colors
-                               tags$h6("Colors", style = "color: #2c3e50;"),
-                               selectInput("plot_color_scheme", "Color scheme:",
-                                           choices = c("Blue-Yellow",
-                                                       "Ocean",
-                                                       "Forest", "Rainbow", "Custom"),
-                                           selected = "Blue-Yellow"),
-                               
-                               conditionalPanel(
-                                 condition = "input.plot_color_scheme == 'Custom'",
+                               wellPanel(
+                                 style = "padding: 10px; margin-bottom: 10px;",
+                                 tags$strong("1. General & Layout"),
                                  fluidRow(
-                                   column(6, 
-                                          colourpicker::colourInput("mancolour", "Manifest:", value = "#A1E3F9",
-                                                                    showColour = "background", palette = "square")
-                                   ),
-                                   column(6,
-                                          colourpicker::colourInput("latcolour", "Latent:", value = "#FFFFBA",
-                                                                    showColour = "background", palette = "square")
-                                   )
+                                   column(6, selectInput("plot_style", "Style:", choices = c("lisrel", "ram", "mx", "OpenMx"), selected = "lisrel")),
+                                   column(6, selectInput("plot_layout", "Layout:", choices = c("tree", "tree2", "tree3", "spring", "circle", "circle2"), selected = "tree2"))
+                                 ),
+                                 fluidRow(
+                                   column(6, numericInput("plotwidth", "Width:", value = 5, min = 1, max = 15, step = 0.3)),
+                                   column(6, numericInput("plotheight", "Height:", value = 5, min = 1, max = 20, step = 0.3))
+                                 ),
+                                 fluidRow(
+                                   column(6, numericInput("plot_rotation", "Rotation:", value = 4, min = 1, max = 4, step = 1)),
+                                   column(6, textInput("bifactor", "Bfactor:", value = NULL, placeholder = "Gen. Factor"))
                                  )
-                               )
+                               ),
                                
+                               wellPanel(
+                                 style = "padding: 10px; margin-bottom: 10px;",
+                                 tags$strong("2. Node & Edge Sizes"),
+                                 fluidRow(
+                                   column(4, numericInput("plot_nodesize_lat", "Latent:", value = 8, min = 3, max = 15, step = 0.3)),
+                                   column(4, numericInput("plot_nodesize_man", "Obs(W):", value = 8, min = 2, max = 15, step = 0.3)),
+                                   column(4, numericInput("plot_nodesize_man2", "Obs(H):", value = 4, min = 1, max = 10, step = 0.3))
+                                 ),
+                                 fluidRow(
+                                   column(6, numericInput("plot_edge_label_size", "Label Size:", value = 0.75, min = 0.5, max = 2, step = 0.1)),
+                                   column(6, numericInput("edgewidth", "Edge Width:", value = 0.3, min = 0.3, max = 5, step = 0.1))
+                                 )
+                               ),
+                               
+                               wellPanel(
+                                 style = "padding: 10px; margin-bottom: 10px;",
+                                 tags$strong("3. Colors & Display Options"),
+                                 selectInput("plot_color_scheme", "Color scheme:",
+                                             choices = c("Blue-Yellow", "Ocean", "Forest", "Rainbow", "Pastel", "Greyscale", "Earth", "Vibrant", "Monochrome", "Sunset", "Rose", "Mint", "Custom"),
+                                             selected = "Blue-Yellow"),
+                                 conditionalPanel(
+                                   condition = "input.plot_color_scheme == 'Custom'",
+                                   fluidRow(
+                                     column(6, colourpicker::colourInput("mancolour", "Manifest:", value = "#A1E3F9", showColour = "background", palette = "square")),
+                                     column(6, colourpicker::colourInput("latcolour", "Latent:", value = "#FFFFBA", showColour = "background", palette = "square"))
+                                   )
+                                 ),
+                                 checkboxInput("plot_standardized", "Standardized estimates", TRUE),
+                                 checkboxInput("plot_residuals", "Show residuals", FALSE),
+                                 checkboxInput("plot_exoCov", "Show exogenous covariances", FALSE)
+                               )
                         ),
-                        column(8, 
+                        column(9, 
                                plotOutput("path_plot", height = "700px"),
-                               uiOutput("plot_fit_info")
+                               br(),
+                               div(style = "text-align: center; margin-top: 10px; background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;",
+                                   tags$strong("4. Fit Indices & Export", style = "display: block; margin-bottom: 10px;"),
+                                   checkboxGroupInput(
+                                     "fit_indices_selected",
+                                     label = NULL,
+                                     choices = c("Chi-Square (χ²)" = "chisq", "df" = "df", "p-value" = "pvalue", "RMSEA" = "rmsea", "CFI" = "cfi", "GFI" = "gfi", "SRMR" = "srmr", "TLI" = "tli", "NFI" = "nfi"),
+                                     selected = c("chisq", "df", "pvalue", "rmsea", "cfi", "srmr"),
+                                     inline = TRUE
+                                   ),
+                                   br(),
+                                   downloadButton("download_cfa_plot", "Download Plot (PNG)", class = "btn btn-primary")
+                               )
                         )
                       )),
              # --- About ----

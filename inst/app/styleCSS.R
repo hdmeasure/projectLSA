@@ -89,6 +89,16 @@ styleCSS <- tags$head(
     transform: scale(0.97) !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
   }
+  
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+  }
+  
+  .btn-glow {
+    animation: pulse-glow 2s infinite !important;
+  }
 
   /* Warna Tombol Khusus */
   .btn-primary {

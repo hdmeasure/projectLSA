@@ -35,6 +35,14 @@ calc_htmt <- function(data, model_syntax,
   })
   names(blocks) <- trimws(sub("=~.*", "", fac_lines))
   
+  # Merge items for factors defined across multiple lines (duplicate factor names)
+  unique_factors <- unique(names(blocks))
+  merged_blocks <- lapply(unique_factors, function(f) {
+    unique(unlist(blocks[names(blocks) == f]))
+  })
+  names(merged_blocks) <- unique_factors
+  blocks <- merged_blocks
+  
   ## -------------------------------------------------
   ## 2. Lavcor
   ## -------------------------------------------------
@@ -97,6 +105,7 @@ server_cfa <- function(input, output, session) {
   library(semptools)
   # library(semTools)
   library(data.table)
+  library(kableExtra)
   
   data_user <- reactive({
     if (input$data_source == "bfi") {
@@ -146,21 +155,11 @@ server_cfa <- function(input, output, session) {
     # Identifikasi kolom numeric 
     numeric_cols <- which(sapply(df, is.numeric))
     #df <- df %>% mutate(across(where(is.numeric), ~ round(.x, 3)))
-    datatable(df, extensions = 'Buttons',
-              options = list(scrollX = TRUE, dom = 'Brtp', pageLength = 25,
-                             buttons = list(
-                               list(
-                                 extend = 'csv',
-                                 text = 'Export CSV',
-                                 filename = paste0('Data CFA')
-                               ),
-                               list(
-                                 extend = 'excel',
-                                 text = 'Export Excel',
-                                 filename = paste0('Data CFA')
-                               ))), rownames = T) %>% 
+    datatable(df,
+              options = list(scrollX = TRUE, dom = 'rtp', pageLength = 25), 
+              rownames = T) %>% 
       formatRound(columns = numeric_cols, digits = 2)
-  }, server = FALSE)
+  }, server = TRUE)
   
   
   # ===== CFA MODEL =====
@@ -177,6 +176,7 @@ server_cfa <- function(input, output, session) {
   # ---- CFA storage ----
   cfa_fit_list <- reactiveVal(list())
   cfa_current_id <- reactiveVal(NULL)
+  cfa_model_counter <- reactiveVal(0)
   run_lavaan <- function(model_text, data, estimator = "ML", missing = "listwise") {
     tryCatch({
       data_numeric <- data %>% dplyr::select(where(is.numeric))
@@ -270,9 +270,39 @@ server_cfa <- function(input, output, session) {
       '<NA>'
     })
     
+    current_count <- cfa_model_counter() + 1
+    cfa_model_counter(current_count)
+    new_id <- paste0("Model_", current_count)
+    
     cur <- cfa_fit_list()
-    new_index <- if (length(cur) == 0) 1 else (length(cur) + 1)
-    new_id <- paste0("Model_", new_index)
+    
+    # Auto-generate modification note
+    auto_note <- ""
+    if (length(cur) == 0) {
+      auto_note <- "Initial Model"
+    } else {
+      last_model <- cur[[length(cur)]]
+      old_syntax <- last_model$spec
+      new_syntax <- input$cfa_model_text
+      
+      old_lines <- trimws(unlist(strsplit(old_syntax, "\n")))
+      new_lines <- trimws(unlist(strsplit(new_syntax, "\n")))
+      old_lines <- old_lines[old_lines != ""]
+      new_lines <- new_lines[new_lines != ""]
+      
+      added <- setdiff(new_lines, old_lines)
+      removed <- setdiff(old_lines, new_lines)
+      
+      changes <- c()
+      if (length(added) > 0) changes <- c(changes, paste("Added:", paste(added, collapse = ", ")))
+      if (length(removed) > 0) changes <- c(changes, paste("Removed:", paste(removed, collapse = ", ")))
+      
+      if (length(changes) == 0) {
+        auto_note <- "Modified formatting only"
+      } else {
+        auto_note <- paste(changes, collapse = " | ")
+      }
+    }
     
     cur[[new_id]] <- list(
       id = new_id, 
@@ -283,6 +313,7 @@ server_cfa <- function(input, output, session) {
       relsem = RelSEM,
       htmt = HTMT,
       scoreCfa = as.data.frame(scoreCfa),
+      note = auto_note,
       time = Sys.time()
     )
     
@@ -302,6 +333,7 @@ server_cfa <- function(input, output, session) {
                                     m["rmsea"], m["cfi"], m["srmr"], m["gfi"])
       data.frame(
         Model = x$id,
+        Note = ifelse(is.null(x$note) || x$note == "", "-", x$note),
         chisq = round(m["chisq"], 2),
         df = m["df"],
         chisq_df_ratio = ifelse(is.na(m["chisq"]), NA, sprintf("%.2f",m["chisq"]/m["df"])),
@@ -319,14 +351,29 @@ server_cfa <- function(input, output, session) {
         stringsAsFactors = FALSE
       )
     }))
+    
+    # Add Action column
+    df$Action <- sapply(seq_len(nrow(df)), function(i) {
+      as.character(
+        actionButton(
+          inputId = paste0("del_model_btn_", i),
+          label = icon("trash"),
+          class = "btn-danger btn-sm",
+          style = "font-size: 11px !important; padding: 2px 10px !important;",
+          onclick = paste0('Shiny.setInputValue("del_model_selected", "', df$Model[i], '", {priority: "event"})')
+        )
+      )
+    })
+    
     # Buat tabel HTML manual
     column(12,
            tags$div(
              style = "margin-top: 0px; font-size: 13px;",
              tags$b("Fit Model Comparison")),
            # ---Render table DT =====
-           datatable(df[,1:12],  # tampilkan kolom tanpa StatusColor
+           datatable(df[, c("Model", "Note", "chisq", "df", "chisq_df_ratio", "pvalue", "RMSEA", "CFI", "TLI", "GFI", "SRMR", "NFI", "Status", "Action")],
                      rownames = FALSE,
+                     escape = FALSE,
                      extensions = 'Buttons',
                      options = list(
                        dom = 'Brt',
@@ -342,7 +389,7 @@ server_cfa <- function(input, output, session) {
                            filename = paste0('Fit Model Comparison')
                          )),
                        pageLength = 30,
-                       columnDefs = list(list(className = 'dt-center', targets = 1:10))
+                       columnDefs = list(list(className = 'dt-center', targets = 2:11))
                      )) %>%
              # --- Tetap: style kolom Status dengan warna ---
              formatStyle('chisq_df_ratio', color = styleInterval(c(2,5), c('green','orange','red')), fontWeight = 'bold', textAlign = 'center') %>% 
@@ -414,6 +461,28 @@ server_cfa <- function(input, output, session) {
            )
     )
     
+  })
+  
+  # Handle model deletion
+  observeEvent(input$del_model_selected, {
+    req(input$del_model_selected)
+    
+    cur_list <- cfa_fit_list()
+    model_id <- input$del_model_selected
+    
+    if (model_id %in% names(cur_list)) {
+      cur_list[[model_id]] <- NULL
+      cfa_fit_list(cur_list)
+      
+      # Update current ID
+      if (length(cur_list) > 0) {
+        cfa_current_id(names(cur_list)[length(cur_list)])
+      } else {
+        cfa_current_id(NULL)
+      }
+      
+      showNotification(paste("Deleted", model_id), type = "message")
+    }
   })
   
   # === Output: HTMT Table =====
@@ -498,8 +567,10 @@ server_cfa <- function(input, output, session) {
     
     datatable(combined_data, extensions = "Buttons",
               rownames = FALSE, 
-              options = list(dom = 'Bt',
-                             buttons = list(
+             
+              options = list( pageLength = 15,
+                              dom = 'Btp',
+                              buttons = list(
                                list(
                                  extend = 'csv',
                                  text = 'Export CSV',
@@ -553,8 +624,9 @@ server_cfa <- function(input, output, session) {
     numeric_cols <- which(sapply(combined_data, is.numeric))
     
     datatable(combined_data, rownames = FALSE, extensions = 'Buttons',
-              options = list(dom = 'Bt',
-                             buttons = list(
+              options = list( pageLength = 15,
+                              dom = 'Btp',
+                              buttons = list(
                                list(
                                  extend = 'csv',
                                  text = 'Export CSV',
@@ -609,7 +681,8 @@ server_cfa <- function(input, output, session) {
     } else if (pvalue < 0.05 && rmsea < 0.08 && cfi >= 0.9 && gfi >= 0.9 && srmr <= 0.05) {
       return(list(status = "Good", color = "#d4edda"))
     } else if  (
-      sum(c(chisq/df<2, rmsea < 0.08,cfi >= 0.9, gfi >= 0.9,srmr <= 0.05,pvalue >= 0.05)) >= 3
+      sum(c(chisq/df<2, rmsea < 0.08,cfi >= 0.9, gfi >= 0.9,srmr <= 0.05,pvalue >= 0.05)) >= 3 ||
+      sum(c(chisq/df<2, rmsea < 0.08,cfi >= 0.9, gfi >= 0.9,srmr <= 0.05)) >= 3
     ) {
       return(list(status = "Acceptable", color = "#fff3cd"))
     } else {
@@ -668,6 +741,206 @@ server_cfa <- function(input, output, session) {
                   color = styleInterval(c(0.3, 0.5, 0.7), c('red', 'orange', 'blue', 'green')) )
   }, server = FALSE)
   
+  # Variances table
+  output$variances_table <- renderDT({
+    cur_id <- cfa_current_id()
+    if (is.null(cur_id)) return(NULL)
+    
+    fit <- cfa_fit_list()[[cur_id]]$fit
+    
+    if (input$cfa_std_est) {
+      sol <- tryCatch(lavaan::standardizedSolution(fit), error = function(e) NULL)
+    } else {
+      sol <- tryCatch(lavaan::parameterEstimates(fit), error = function(e) NULL)
+    }
+    
+    if (is.null(sol)) return(datatable(data.frame(Message = "No parameter estimates available")))
+    
+    variances <- sol[sol$op == "~~" & sol$lhs == sol$rhs, ]
+    
+    if (nrow(variances) == 0) return(datatable(data.frame(Message = "No variances found")))
+    
+    if (input$cfa_std_est) {
+      display_df <- variances[, c("lhs", "est.std", "se", "pvalue")]
+      colnames(display_df) <- c("Variable", "StdVariance", "SE", "pvalue")
+      display_df$StdVariance <- round(display_df$StdVariance, 3)
+      display_df$SE <- round(display_df$SE, 3)
+    } else {
+      display_df <- variances[, c("lhs", "est", "se", "pvalue")]
+      colnames(display_df) <- c("Variable", "Variance", "SE", "pvalue")
+      display_df$Variance <- round(display_df$Variance, 3)
+      display_df$SE <- round(display_df$SE, 3)
+    }
+    
+    display_df$pvalue <- format.pval(display_df$pvalue, digits = 3)
+    
+    datatable(display_df, extensions = 'Buttons',
+              options = list(pageLength = 15, scrollX = TRUE, dom = 'Brtp',
+                             buttons = list(
+                               list(extend = 'csv', text = 'Export CSV', filename = 'Variances'),
+                               list(extend = 'excel', text = 'Export Excel', filename = 'Variances')
+                             )))
+  }, server = FALSE)
+  
+  # Variance warning
+  output$variance_warning <- renderUI({
+    cur_id <- cfa_current_id()
+    if (is.null(cur_id)) return(NULL)
+    
+    fit <- cfa_fit_list()[[cur_id]]$fit
+    sol <- tryCatch(lavaan::parameterEstimates(fit), error = function(e) NULL)
+    
+    if (is.null(sol)) return(NULL)
+    
+    variances <- sol[sol$op == "~~" & sol$lhs == sol$rhs, ]
+    has_negative <- any(variances$est < 0, na.rm = TRUE)
+    
+    if (has_negative) {
+      tags$div(
+        class = "alert alert-danger",
+        icon("exclamation-triangle"),
+        tags$b(" Warning: Heywood case detected! One or more variances are negative. This may indicate a problem with the model or data.")
+      )
+    } else {
+      NULL
+    }
+  })
+
+  # HTML Report Download Handler
+  # Modal for HTML export
+  observeEvent(input$btn_export_modal, {
+    showModal(modalDialog(
+      title = "Export HTML Report",
+      tags$div(
+        style = "text-align: center;",
+        tags$h4("Your report is ready to download!"),
+        tags$p("If you find projectLSA helpful for your research, consider supporting its continuous development. Your support helps us keep the project alive!"),
+        tags$div(
+          style = "background-color: #f8f9fa; border: 2px dashed #17a2b8; padding: 20px; border-radius: 10px; margin-bottom: 20px;",
+          tags$strong("Support via Bank BNI:", style="color: #17a2b8; font-size: 16px;"), tags$br(),
+          tags$span("0331355050", style="font-size: 24px; font-weight: bold; color: #d32f2f; letter-spacing: 2px;"), tags$br(),
+          tags$em("Account Name: Hasan Djidu"), tags$br(), tags$br(),
+          tags$strong("International Transfer (SWIFT):", style="color: #17a2b8; font-size: 14px;"), tags$br(),
+          tags$span("BNINIDJA", style="font-size: 16px; font-weight: bold; color: #d32f2f;")
+        ),
+        downloadButton("download_report_html", "Download Report Now", class = "btn btn-success btn-lg")
+      ),
+      footer = modalButton("Close"),
+      easyClose = TRUE
+    ))
+  })
+  
+  output$download_report_html <- downloadHandler(
+    filename = function() {
+      cur_id <- cfa_current_id()
+      if(is.null(cur_id)) return(paste0("Report_", Sys.Date(), ".html"))
+      
+      fit_obj <- cfa_fit_list()[[cur_id]]$fit
+      pe <- lavaan::parameterEstimates(fit_obj)
+      
+      # Detect if SEM
+      is_sem <- any(pe$op == "~")
+      prefix <- if (is_sem) "SEM_Report_" else "CFA_Report_"
+      
+      # Extract main latent name
+      latents <- unique(pe$lhs[pe$op == "=~"])
+      latent_name <- if(length(latents) > 0) latents[length(latents)] else "Model"
+      
+      paste0(prefix, latent_name, "_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      req(cfa_current_id())
+      cur_id <- cfa_current_id()
+      fit_info <- cfa_fit_list()[[cur_id]]
+      
+      report_path <- file.path(system.file("app", package = "projectLSA"), "cfa_report.Rmd")
+      if (report_path == "" || !file.exists(report_path)) {
+        report_path <- "cfa_report.Rmd"
+      }
+      
+      tempReport <- file.path(tempdir(), "cfa_report.Rmd")
+      file.copy(report_path, tempReport, overwrite = TRUE)
+      
+      # Get plot colors safely for the params
+      if (input$plot_color_scheme == "Custom") {
+        man_col <- input$mancolour
+        lat_col <- input$latcolour
+      } else {
+        colors <- get_color_scheme(input$plot_color_scheme)
+        man_col <- colors$man
+        lat_col <- colors$lat
+      }
+      
+      # Get all models for history
+      lst <- cfa_fit_list()
+      fit_initial <- lst[[1]]$fit
+      
+      model_history_df <- do.call(rbind, lapply(lst, function(x){
+        m <- x$measures
+        data.frame(
+          Model = x$id,
+          Note = ifelse(is.null(x$note) || x$note == "", "-", x$note),
+          chisq = m["chisq"],
+          df = m["df"],
+          pvalue = m["pvalue"],
+          RMSEA = m["rmsea"],
+          CFI = m["cfi"],
+          TLI = m["tli"],
+          SRMR = m["srmr"],
+          stringsAsFactors = FALSE
+        )
+      }))
+      
+      # Render to a temporary html file first to ensure pandoc handles extensions correctly
+      out_html <- file.path(tempdir(), "cfa_report_out.html")
+      
+      # Detect model type
+      pe <- lavaan::parameterEstimates(fit_info$fit)
+      model_type <- if(any(pe$op == "~")) "SEM" else "CFA"
+      
+      showModal(modalDialog("Generating Report...", footer = NULL))
+      tryCatch({
+        rmarkdown::render(tempReport, output_file = out_html,
+          params = list(
+            model_type = model_type,
+            fit_final = fit_info$fit,
+            fit_initial = fit_initial,
+            model_history_df = model_history_df,
+            dec = input$cfa_dec_sep,
+            ave = fit_info$ave,
+            relsem = fit_info$relsem,
+            htmt = fit_info$htmt,
+            plot_standardized = input$plot_standardized,
+            plot_style = input$plot_style,
+            plot_layout = input$plot_layout,
+            plot_residuals = input$plot_residuals,
+            plot_exoCov = input$plot_exoCov,
+            plot_edge_label_size = input$plot_edge_label_size,
+            plot_nodesize_lat = input$plot_nodesize_lat,
+            plot_nodesize_man = input$plot_nodesize_man,
+            plot_nodesize_man2 = input$plot_nodesize_man2,
+            plot_rotation = input$plot_rotation,
+            man_col = man_col,
+            lat_col = lat_col,
+            bifactor = input$bifactor,
+            edgewidth = input$edgewidth,
+            plotwidth = input$plotwidth,
+            plotheight = input$plotheight
+          ),
+          envir = new.env(parent = globalenv())
+        )
+        
+        # Copy to the Shiny-provided 'file' path
+        file.copy(out_html, file, overwrite = TRUE)
+        
+      }, error = function(e) {
+        showNotification(paste("Error generating report:", e$message), type = "error")
+      }, finally = {
+        removeModal()
+      })
+    },
+    contentType = "text/html"
+  )
   # Modification indices
   mi_df <- reactive({
     cur_id <- cfa_current_id()
@@ -767,6 +1040,38 @@ server_cfa <- function(input, output, session) {
            "Rainbow" = list(
              man = "#B3E5FC", 
              lat = c("#FF8A65", "#81D4FA", "#AED581", "#CE93D8","#FFF176" )
+           ),
+           "Pastel" = list(
+             man = "#F8ECE5",
+             lat = c("#E2E2E2", "#E8EAF6", "#F3E5F5", "#E0F2F1")
+           ),
+           "Greyscale" = list(
+             man = "#EEEEEE",
+             lat = c("#DDDDDD", "#CCCCCC", "#BBBBBB", "#AAAAAA")
+           ),
+           "Earth" = list(
+             man = "#D7CCC8",
+             lat = c("#BCAAA4", "#A1887F", "#8D6E63", "#795548")
+           ),
+           "Vibrant" = list(
+             man = "#FFE0B2",
+             lat = c("#FF5252", "#E040FB", "#7C4DFF", "#536DFE")
+           ),
+           "Monochrome" = list(
+             man = "#E0E0E0",
+             lat = c("#9E9E9E", "#757575", "#616161", "#424242")
+           ),
+           "Sunset" = list(
+             man = "#FFCCBC",
+             lat = c("#FF8A65", "#FF7043", "#F4511E", "#E64A19")
+           ),
+           "Rose" = list(
+             man = "#F8BBD0",
+             lat = c("#F06292", "#EC407A", "#E91E63", "#D81B60")
+           ),
+           "Mint" = list(
+             man = "#B2DFDB",
+             lat = c("#4DB6AC", "#26A69A", "#009688", "#00897B")
            )
     )
   }
@@ -794,70 +1099,140 @@ server_cfa <- function(input, output, session) {
     })
   }
   
-  # SIMPLE PLOT RENDER - langsung di output$path_plot
-  output$path_plot <- renderPlot({
+  # Helper to generate the fit text
+  get_fit_text <- function(m, selected, dec_sep = ".") {
+    all_indices <- c("chisq","df","pvalue","rmsea","cfi","gfi","srmr","tli","nfi")
+    if ("SELECT ALL" %in% selected) selected <- all_indices
+    selected <- intersect(all_indices, selected)
+    labels <- c(chisq="χ²", df="df", pvalue="p", rmsea="RMSEA", cfi="CFI", gfi="GFI", srmr="SRMR", tli="TLI", nfi="NFI")
+    format_val <- function(name, val) {
+      if (is.na(val)) return("NA")
+      fmt_with_sep <- function(x) {
+        if(dec_sep == ",") gsub("\\.", ",", x) else x
+      }
+      if (name == "pvalue") return(fmt_with_sep(format.pval(val, digits = 3)))
+      if (name == "chisq")  return(fmt_with_sep(as.character(round(val, 2))))
+      if (name == "df")     return(val)
+      return(fmt_with_sep(sprintf("%.3f", val)))
+    }
+    paste(sapply(selected, function(n) paste0(labels[n], "=", format_val(n, m[n]))), collapse = "; ")
+  }
+
+  render_cfa_plot_impl <- function() {
     cur_id <- cfa_current_id()
     if (is.null(cur_id)) {
-      plot(1, 1, type = "n", xlab = "", ylab = "", axes = FALSE, 
-           main = "No CFA model available")
-      text(1, 1, "Please run a CFA model first\n\n1. Select 'Built-in: HolzingerSwineford1939'\n2. Keep the example model\n3. Click 'Run CFA'", 
-           cex = 1.2, col = "darkred")
-      return()
+      plot(1, 1, type = "n", xlab = "", ylab = "", axes = FALSE, main = "No CFA model available")
+      text(1, 1, "Please run a CFA model first\n\n1. Select 'Built-in: HolzingerSwineford1939'\n2. Keep the example model\n3. Click 'Run CFA'", cex = 1.2, col = "darkred")
+      return(invisible(NULL))
     }
     
-    fit_obj <- cfa_fit_list()[[cur_id]]$fit
+    obj <- cfa_fit_list()[[cur_id]]
+    fit_obj <- obj$fit
+    m <- obj$measures
     
+    if (input$plot_color_scheme == "Custom") {
+      colors <- list(man = input$mancolour, lat = input$latcolour)
+    } else {
+      colors <- get_color_scheme(input$plot_color_scheme)
+    }
+    
+    # Fix bottom margin so plot expands upwards
+    b_margin <- 6
+    A <- semPlot::semPaths(
+      fit_obj,
+      what = ifelse(input$plot_standardized, "std", "est"),
+      style = input$plot_style,
+      layout = input$plot_layout,
+      residuals = input$plot_residuals,
+      exoCov = input$plot_exoCov,
+      edge.label.cex = input$plot_edge_label_size,
+      nCharNodes = 6,
+      nCharEdges = 6,
+      sizeLat = input$plot_nodesize_lat,
+      sizeMan = input$plot_nodesize_man,
+      sizeMan2 = input$plot_nodesize_man2,
+      rotation = input$plot_rotation,
+      color = colors,
+      label.color = "black",
+      mar = c(b_margin, 15-input$plotwidth, 20-input$plotheight, 15-input$plotwidth),
+      bifactor = input$bifactor,
+      esize = input$edgewidth,
+      edge.color = "black",       
+      freeStyle = c(1, "black"),
+      fixedStyle = c(2, "black"),
+      fade = FALSE,
+      DoNotPlot = TRUE
+    )
+    
+    # Add significance
+    A <- semptools::mark_sig(semPaths_plot = A, object = fit_obj,
+                             alphas = c("*" = 0.05, "**" = 0.01, "***" = 0.001))
+    
+    # Apply decimal separator to edge labels
+    if (input$cfa_dec_sep == ",") {
+      A$graphAttributes$Edges$labels <- gsub("\\.", ",", A$graphAttributes$Edges$labels)
+    }
+    
+    # Plot the graph
+    plot(A)
+    
+    # Add fit info inside a box
+    factor_names <- get_factor_names(fit_obj)
+    fit_text_raw <- get_fit_text(m, input$fit_indices_selected, dec_sep = input$cfa_dec_sep)
+    wrapped_fit <- paste(strwrap(paste0("Fit indices: ", fit_text_raw), width = 110), collapse = "\n")
+    
+    estimator_text <- paste0("Estimator = ", input$cfa_estimator, " | Factors: ", paste(factor_names, collapse = ", "))
+    sig_sign <- '*** : p ≤ 0.001", "** : p ≤ 0.01", "* : p ≤ 0.05'
+    
+    legend_text <- c(wrapped_fit, estimator_text, sig_sign)
+    text_colors <- c("#2c3e50", "darkblue", "#6c757d")
+    
+    # Get legend coordinates without plotting
+    leg_info <- legend("bottom", legend = legend_text, plot = FALSE, inset = c(0, 0), cex = 0.9, y.intersp = 1.0)
+    
+    # Draw empty legend box with correct width
+    max_w <- max(strwidth(legend_text, cex = 0.9))
+    legend("bottom", legend = rep("", length(legend_text)), bg = "#f8f9fa", box.col = "#e2e8f0", 
+           inset = c(0, 0), cex = 0.9, xpd = TRUE, y.intersp = 1.0, text.width = max_w)
+           
+    # Draw text centered
+    center_x <- leg_info$rect$left + leg_info$rect$w / 2
+    y_coords <- leg_info$text$y
+    for(i in seq_along(legend_text)) {
+      text(x = center_x, y = y_coords[i], labels = legend_text[i], col = text_colors[i], cex = 0.9, xpd = TRUE, adj = c(0.5, 0.5))
+    }
+    # (Watermark has been removed as requested)
+  }
+
+  output$path_plot <- renderPlot({
     tryCatch({
-      # Get colors
-      tryCatch({
-        # Get colors
-        if (input$plot_color_scheme == "Custom") {
-          colors <- list(man = input$mancolour, lat = input$latcolour)
-        } else {
-          colors <- get_color_scheme(input$plot_color_scheme)
-        }
-        
-        # Create plot...
-      }, error = function(e) {
-        # Error handling...
-      })      
-      # Create plot langsung di sini
-      A <- semPlot::semPaths(
-        fit_obj,
-        what = ifelse(input$plot_standardized, "std", "est"),
-        style = input$plot_style,
-        layout = input$plot_layout,
-        residuals = input$plot_residuals,
-        exoCov = input$plot_exoCov,
-        edge.label.cex = input$plot_edge_label_size,
-        nCharNodes = 6,
-        nCharEdges = 6,
-        sizeLat = input$plot_nodesize_lat,
-        sizeMan = input$plot_nodesize_man,
-        sizeMan2 = input$plot_nodesize_man2,
-        rotation = input$plot_rotation,
-        color = colors,
-        #border.width = 1,
-        label.color = "black",
-        mar = c( 1, 15-input$plotwidth,20-input$plotheight,15-input$plotwidth),
-        bifactor = input$bifactor,
-        esize = input$edgewidth,
-        edge.color = "black",       
-        freeStyle = c(1, "black"),
-        fixedStyle = c(2, "black"),
-        fade = FALSE
-        
-      )
-      
-      plot(semptools::mark_sig(semPaths_plot = A,object = fit_obj,
-                               alphas = c("*" = 0.05, "**" = 0.01, "***" = 0.001)))    
-      
+      render_cfa_plot_impl()
     }, error = function(e) {
-      plot(1, 1, type = "n", xlab = "", ylab = "", axes = FALSE, 
-           main = "Plot Error")
-      text(1, 1, paste("Error creating plot:\n", e$message), 
-           cex = 1.2, col = "red")
+      plot(1, 1, type = "n", xlab = "", ylab = "", axes = FALSE, main = "Plot Error")
+      text(1, 1, paste("Error creating plot:\n", e$message), cex = 1.2, col = "red")
     })
+  })
+  
+  output$download_cfa_plot <- downloadHandler(
+    filename = function() {
+      paste0("CFA_Plot_", Sys.Date(), ".png")
+    },
+    content = function(file) {
+      png(file, width = 12, height = 10, units = "in", res = 300)
+      tryCatch({
+        render_cfa_plot_impl()
+      }, finally = {
+        dev.off()
+      })
+    }
+  )
+  
+  observeEvent(input$fit_indices_selected, {
+    sel <- input$fit_indices_selected
+    if ("SELECT ALL" %in% sel && length(sel) > 1)
+      updateSelectInput(session, "fit_indices_selected",
+                        selected = if (tail(sel,1)=="SELECT ALL") "SELECT ALL"
+                        else setdiff(sel,"SELECT ALL"))
   })
   
   # Fit information below plot
@@ -872,27 +1247,30 @@ server_cfa <- function(input, output, session) {
     # Get factor names safely
     factor_names <- get_factor_names(fit_obj)
     
-    fit_text <- paste0(
-      "χ² = ", round(m["chisq"], 2), "; ",
-      "df = ", m["df"], "; ",
-      "p = ", ifelse(is.na(m["pvalue"]), "NA", format.pval(m["pvalue"], digits = 3)), "; ",
-      "RMSEA = ", ifelse(is.na(m["rmsea"]), "NA", sprintf("%.3f", m["rmsea"])), "; ",
-      "CFI = ", ifelse(is.na(m["cfi"]), "NA", sprintf("%.3f", m["cfi"])), "; ",
-      "GFI = ", ifelse(is.na(m["gfi"]), "NA", sprintf("%.3f", m["gfi"])), "; ",
-      "SRMR = ", ifelse(is.na(m["srmr"]), "NA", sprintf("%.3f", m["srmr"])),"; ",
-      "TLI = ", ifelse(is.na(m["tli"]), "NA", sprintf("%.3f", m["tli"])),"; ",
-      "NFI = ", ifelse(is.na(m["nfi"]), "NA", sprintf("%.3f", m["nfi"]))
-      
-      
-    )
+    # fit_text <- paste0(
+    #   "χ² = ", round(m["chisq"], 2), "; ",
+    #   "df = ", m["df"], "; ",
+    #   "p = ", ifelse(is.na(m["pvalue"]), "NA", format.pval(m["pvalue"], digits = 3)), "; ",
+    #   "RMSEA = ", ifelse(is.na(m["rmsea"]), "NA", sprintf("%.3f", m["rmsea"])), "; ",
+    #   "CFI = ", ifelse(is.na(m["cfi"]), "NA", sprintf("%.3f", m["cfi"])), "; ",
+    #   "GFI = ", ifelse(is.na(m["gfi"]), "NA", sprintf("%.3f", m["gfi"])), "; ",
+    #   "SRMR = ", ifelse(is.na(m["srmr"]), "NA", sprintf("%.3f", m["srmr"])),"; ",
+    #   "TLI = ", ifelse(is.na(m["tli"]), "NA", sprintf("%.3f", m["tli"])),"; ",
+    #   "NFI = ", ifelse(is.na(m["nfi"]), "NA", sprintf("%.3f", m["nfi"]))
+    # 
+    # )
+    selected <- input$fit_indices_selected
+    fit_text <- get_fit_text(m, selected, dec_sep = input$cfa_dec_sep)
+    
+    
+    
     
     estimator_text <- paste0(
       "Estimator = ", input$cfa_estimator, 
       " | Factors: ", paste(factor_names, collapse = ", ")
-      
     )
     sig_sign <- paste0(
-      '*** : p ≤ 0.001", "**  : p ≤ 0.01", "*    : p ≤ 0.05'
+      '*** : p ≤ 0.001", "** : p ≤ 0.01", "* : p ≤ 0.05'
     )
     
     tagList(
@@ -908,64 +1286,29 @@ server_cfa <- function(input, output, session) {
   })
   
   # Download handlers
-  output$download_measures <- downloadHandler(
-    filename = function() paste0("cfa_measures_", Sys.Date(), ".csv"),
+  output$download_ris <- downloadHandler(
+    filename = function() {
+      "projectLSA_citation.ris"
+    },
     content = function(file) {
-      lst <- cfa_fit_list()
-      if (length(lst) == 0) return(NULL)
-      
-      df_list <- lapply(lst, function(x) {
-        data.frame(Model = x$id, as.list(x$measures), stringsAsFactors = FALSE)
-      })
-      
-      df <- do.call(rbind, df_list)
-      write.csv(df, file, row.names = FALSE)
+      ris_text <- c(
+        "TY  - JOUR",
+        "AU  - Djidu, Hasan",
+        "AU  - Retnawati, Heri",
+        "AU  - Hadi, Samsul",
+        "AU  - Haryanto",
+        "PY  - 2026",
+        "DA  - 2026/04/20",
+        "TI  - projectLSA: A Shiny Application for Integrated Latent Structure Analysis",
+        "JO  - Applied Psychological Measurement",
+        "DO  - 10.1177/01466216261446305",
+        "UR  - https://doi.org/10.1177/01466216261446305",
+        "ER  - "
+      )
+      writeLines(ris_text, file)
     }
   )
-  
-  output$download_loadings <- downloadHandler(
-    filename = function() paste0("cfa_loadings_", Sys.Date(), ".csv"),
-    content = function(file) {
-      cur_id <- cfa_current_id()
-      if (is.null(cur_id)) return(NULL)
-      
-      fit <- cfa_fit_list()[[cur_id]]$fit
-      
-      if (input$cfa_std_est) {
-        sol <- lavaan::standardizedSolution(fit)
-      } else {
-        sol <- lavaan::parameterEstimates(fit)
-      }
-      
-      write.csv(sol, file, row.names = FALSE)
-    }
-  )
-  
-  output$download_lavaan <- downloadHandler(
-    filename = function() paste0("cfa_summary_", Sys.Date(), ".txt"),
-    content = function(file) {
-      cur_id <- cfa_current_id()
-      if (is.null(cur_id)) return(NULL)
-      
-      fit <- cfa_fit_list()[[cur_id]]$fit
-      
-      sink(file)
-      print(summary(fit, fit.measures = TRUE, standardized = TRUE))
-      sink()
-    }
-  )
-  
-  output$download_scores_cfa <- downloadHandler(
-    filename = function() paste0("Factor Scores_", Sys.Date(), ".csv"),
-    content = function(file) {
-      cur_id <- cfa_current_id()
-      if (is.null(cur_id)) return(NULL)
-      
-      scoreCfa <- cfa_fit_list()[[cur_id]]$scoreCfa
-      
-      write.csv(scoreCfa, file, row.names = FALSE)
-    }
-  )
+
   
   
 }

@@ -1,0 +1,29 @@
+bibentry(
+  bibtype  = "Article",
+  title    = "projectLSA: A Shiny Application for Integrated Latent Structure Analysis",
+  author   = c(
+    person("Hasan", "Djidu"),
+    person("Heri", "Retnawati"),
+    person("Samsul", "Hadi"),
+    person("Haryanto", "")
+  ),
+  journal  = "Applied Psychological Measurement",
+  year     = "2026",
+  doi      = "10.1177/01466216261446305",
+  header   = "To cite projectLSA in publications, use:"
+)
+
+bibentry(
+  bibtype  = "Manual",
+  title    = "projectLSA: R Shiny Application for Latent Structure Analysis with a Graphical User Interface",
+  author   = c(
+    person("Hasan", "Djidu"),
+    person("Heri", "Retnawati"),
+    person("Samsul", "Hadi"),
+    person("Haryanto", "")
+  ),
+  year     = "2026",
+  note     = "R package",
+  doi      = "10.32614/CRAN.package.projectLSA",
+  header   = "Or cite the R package directly:"
+)

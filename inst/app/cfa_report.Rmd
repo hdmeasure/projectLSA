@@ -1,0 +1,432 @@
+---
+title: "`r ifelse(params$model_type == 'SEM', 'Structural Equation Modeling (SEM) Report', 'Confirmatory Factor Analysis (CFA) Report')`"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  model_type: "CFA"
+  fit_final: NA
+  fit_initial: NA
+  model_history_df: NA
+  dec: "."
+  ave: NA
+  relsem: NA
+  htmt: NA
+  plot_standardized: TRUE
+  plot_style: "lisrel"
+  plot_layout: "tree2"
+  plot_residuals: FALSE
+  plot_exoCov: FALSE
+  plot_edge_label_size: 0.75
+  plot_nodesize_lat: 5
+  plot_nodesize_man: 5
+  plot_nodesize_man2: 2.5
+  plot_rotation: 4
+  man_col: "#A1E3F9"
+  lat_col: "#FFFFBA"
+  bifactor: ""
+  edgewidth: 0.3
+  plotwidth: 10
+  plotheight: 8
+---
+
+<style>
+  body, p, table, td, th {
+    font-family: "Times New Roman", Times, serif;
+    line-height: 1.0 !important;
+    font-size: 14px;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Times New Roman", Times, serif;
+    line-height: 1.1;
+  }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(lavaan)
+library(knitr)
+library(dplyr)
+library(flextable)
+
+# Configure flextable defaults for professional APA look
+set_flextable_defaults(
+  font.family = "Times New Roman",
+  font.size = 11,
+  theme_fun = theme_apa,
+  padding = 1.5,
+  line_spacing = 1.0,
+  decimal.mark = params$dec
+)
+
+# Helper function to format numbers
+fmt <- function(x, digits = 3) {
+  if(is.numeric(x)) {
+    formatC(x, format = "f", digits = digits, decimal.mark = params$dec)
+  } else {
+    x
+  }
+}
+```
+
+## Model Fit Summary (Initial Model)
+
+This report presents the results of the `r ifelse(params$model_type == 'SEM', 'Structural Equation Modeling (SEM)', 'Confirmatory Factor Analysis (CFA)')`. 
+
+```{r model-info, results='asis'}
+# Extract fit information for initial
+cat("Estimator:", params$fit_final@Options$estimator, " | ")
+cat("Optimization Method:", params$fit_final@Options$optim.method, " | ")
+cat("Observations:", lavInspect(params$fit_final, "ntotal"), "\n\n")
+
+if(!is.null(params$fit_initial)) {
+  m_init <- fitMeasures(params$fit_initial)
+  
+  # Determine interpretations
+  chisq_val <- m_init["chisq"]
+  df_val <- m_init["df"]
+  p_val <- m_init["pvalue"]
+  
+  rmsea_val <- m_init["rmsea"]
+  rmsea_interp <- if(is.na(rmsea_val)) "an unknown" else if(rmsea_val < 0.05) "a good" else if(rmsea_val < 0.08) "an acceptable" else "a poor"
+  
+  cfi_val <- m_init["cfi"]
+  cfi_interp <- if(is.na(cfi_val)) "an unknown" else if(cfi_val >= 0.95) "a good" else if(cfi_val >= 0.90) "an acceptable" else "a poor"
+  
+  tli_val <- m_init["tli"]
+  
+  srmr_val <- m_init["srmr"]
+  srmr_interp <- if(is.na(srmr_val)) "an unknown" else if(srmr_val < 0.05) "a good" else if(srmr_val < 0.08) "an acceptable" else "a poor"
+  
+  p_text <- if(!is.na(p_val) && p_val < 0.001) "< .001" else paste0("= ", fmt(p_val, 3))
+  
+  cat(sprintf(
+    "The initial measurement model was evaluated using several fit indices based on standard criteria (e.g., Hu & Bentler, 1999). The Chi-square test resulted in χ²(%s) = %s, p %s. The Root Mean Square Error of Approximation (RMSEA) was %s, which indicates %s fit. The Comparative Fit Index (CFI) was %s and the Tucker-Lewis Index (TLI) was %s, suggesting %s fit. Furthermore, the Standardized Root Mean Square Residual (SRMR) was %s, denoting %s fit.\n",
+    fmt(df_val, 0), fmt(chisq_val, 2), p_text,
+    fmt(rmsea_val, 3), rmsea_interp,
+    fmt(cfi_val, 3), fmt(tli_val, 3), cfi_interp,
+    fmt(srmr_val, 3), srmr_interp
+  ))
+}
+```
+
+## Model Fit History
+
+This table shows the progression of fit indices across all executed models.
+
+```{r model-history}
+if(!is.null(params$model_history_df) && !identical(params$model_history_df, NA) && nrow(params$model_history_df) > 0) {
+  hist_df <- params$model_history_df
+  num_cols <- c("chisq", "df", "pvalue", "RMSEA", "CFI", "TLI", "SRMR")
+  for(col in num_cols) {
+    if(col %in% names(hist_df)) hist_df[[col]] <- as.numeric(hist_df[[col]])
+  }
+  
+  # Select and arrange columns
+  display_cols <- intersect(c("Model", "Note", num_cols), names(hist_df))
+  hist_df <- hist_df[, display_cols]
+  
+  ft <- flextable(hist_df) %>%
+    colformat_double(j = c("chisq"), digits = 2) %>%
+    colformat_double(j = c("pvalue", "RMSEA", "CFI", "TLI", "SRMR"), digits = 3) %>%
+    set_caption("Model Fit History Comparison") %>%
+    autofit()
+  ft
+} else {
+  cat("Model history is not available.\n")
+}
+```
+
+## Fit Measures (Final Model)
+
+The following table presents common fit indices for evaluating the final model fit.
+
+```{r fit-measures}
+fit_summary <- fitMeasures(params$fit_final)
+fit_names <- c("chisq", "df", "pvalue", "rmsea", "cfi", "tli", "srmr", "gfi", "agfi")
+fit_vals <- fit_summary[fit_names]
+
+fit_df <- data.frame(
+  Measure = c("Chi-square (χ²)", "Degrees of Freedom", "p-value", "RMSEA", "CFI", "TLI", "SRMR", "GFI", "AGFI"),
+  Value = as.numeric(fit_vals)
+)
+
+ft_fit <- flextable(fit_df) %>%
+  set_header_labels(Measure = "Fit Measure", Value = "Value") %>%
+  colformat_double(j = "Value", digits = 3) %>%
+  set_caption("Fit Indices for the Final Model") %>%
+  autofit()
+ft_fit
+```
+
+```{r final-model-info, results='asis'}
+  m_final <- fitMeasures(params$fit_final)
+  
+  # Determine interpretations
+  chisq_val <- m_final["chisq"]
+  df_val <- m_final["df"]
+  p_val <- m_final["pvalue"]
+  
+  rmsea_val <- m_final["rmsea"]
+  rmsea_interp <- if(is.na(rmsea_val)) "an unknown" else if(rmsea_val < 0.05) "a good" else if(rmsea_val < 0.08) "an acceptable" else "a poor"
+  
+  cfi_val <- m_final["cfi"]
+  cfi_interp <- if(is.na(cfi_val)) "an unknown" else if(cfi_val >= 0.95) "a good" else if(cfi_val >= 0.90) "an acceptable" else "a poor"
+  
+  tli_val <- m_final["tli"]
+  
+  srmr_val <- m_final["srmr"]
+  srmr_interp <- if(is.na(srmr_val)) "an unknown" else if(srmr_val < 0.05) "a good" else if(srmr_val < 0.08) "an acceptable" else "a poor"
+  
+  p_text <- if(!is.na(p_val) && p_val < 0.001) "< .001" else paste0("= ", fmt(p_val, 3))
+  
+  cat(sprintf(
+    "The final model was evaluated and resulted in χ²(%s) = %s, p %s. The RMSEA was %s (%s fit), CFI was %s and TLI was %s (%s fit), and SRMR was %s (%s fit).\n",
+    fmt(df_val, 0), fmt(chisq_val, 2), p_text,
+    fmt(rmsea_val, 3), rmsea_interp,
+    fmt(cfi_val, 3), fmt(tli_val, 3), cfi_interp,
+    fmt(srmr_val, 3), srmr_interp
+  ))
+```
+
+## Measurement Model (Final Model)
+
+The table below integrates the unstandardized and standardized factor loadings, standard errors, significance, and residual variances for the final measurement model.
+
+```{r measurement-model}
+# Extract estimates
+pe <- parameterEstimates(params$fit_final)
+std <- standardizedSolution(params$fit_final)
+
+# Loadings
+loadings_pe <- pe[pe$op == "=~", c("lhs", "rhs", "est", "se", "pvalue")]
+loadings_std <- std[std$op == "=~", c("lhs", "rhs", "est.std")]
+loadings <- merge(loadings_pe, loadings_std, by = c("lhs", "rhs"), all.x = TRUE)
+
+# Residual Variances
+variances_pe <- pe[pe$op == "~~" & pe$lhs == pe$rhs, c("lhs", "est")]
+colnames(variances_pe) <- c("rhs", "resid_var")
+variances_std <- std[std$op == "~~" & std$lhs == std$rhs, c("lhs", "est.std")]
+colnames(variances_std) <- c("rhs", "std_resid_var")
+
+# Combine everything
+meas_model <- merge(loadings, variances_pe, by = "rhs", all.x = TRUE)
+meas_model <- merge(meas_model, variances_std, by = "rhs", all.x = TRUE)
+
+meas_df <- data.frame(
+  Factor = meas_model$lhs,
+  Item = meas_model$rhs,
+  Estimate = meas_model$est,
+  Std_Estimate = meas_model$est.std,
+  SE = meas_model$se,
+  p_value = meas_model$pvalue,
+  Resid_Var = meas_model$resid_var
+)
+
+# Sort by factor
+meas_df <- meas_df[order(meas_df$Factor, meas_df$Item), ]
+
+# Format p-values
+meas_df$p_value_fmt <- ifelse(meas_df$p_value < 0.001, "< .001", fmt(meas_df$p_value, 3))
+
+# Check for Heywood cases
+neg_var <- any(meas_df$Resid_Var < 0, na.rm = TRUE)
+
+ft_meas <- flextable(meas_df[, c("Factor", "Item", "Estimate", "Std_Estimate", "SE", "p_value_fmt", "Resid_Var")]) %>%
+  set_header_labels(
+    Factor = "Factor",
+    Item = "Item",
+    Estimate = "Unstd. Loading",
+    Std_Estimate = "Std. Loading",
+    SE = "S.E.",
+    p_value_fmt = "p-value",
+    Resid_Var = "Residual Variance"
+  ) %>%
+  colformat_double(j = c("Estimate", "Std_Estimate", "SE", "Resid_Var"), digits = 3) %>%
+  merge_v(j = "Factor") %>%
+  valign(j = "Factor", valign = "top") %>%
+  set_caption("Measurement Model: Factor Loadings and Residual Variances") %>%
+  autofit()
+
+# Highlight Heywood cases if any
+if(neg_var) {
+  # find indices
+  idx <- which(meas_df$Resid_Var < 0)
+  ft_meas <- ft_meas %>%
+    bg(i = idx, bg = "#FFCCCC") %>%
+    add_footer_lines("Warning: Highlighted rows indicate negative residual variances (Heywood cases).")
+}
+
+ft_meas
+```
+
+## Reliability and Validity
+
+### Average Variance Explained (AVE) and Composite Reliability (CR)
+
+```{r ave-cr}
+has_ave <- !is.null(params$ave) && !all(is.na(params$ave))
+has_rel <- !is.null(params$relsem) && !all(is.na(params$relsem))
+
+if(has_ave || has_rel) {
+  factors <- unique(c(names(params$ave), names(params$relsem)))
+  
+  ave_cr_df <- data.frame(
+    Factor = factors,
+    AVE = if(has_ave) as.numeric(params$ave[factors]) else NA,
+    CR = if(has_rel) as.numeric(params$relsem[factors]) else NA,
+    row.names = NULL
+  )
+  
+  ft_ave <- flextable(ave_cr_df) %>%
+    set_header_labels(Factor = "Factor", AVE = "AVE", CR = "Composite Reliability") %>%
+    colformat_double(j = c("AVE", "CR"), digits = 3) %>%
+    set_caption("Construct Reliability and Validity (AVE and CR)") %>%
+    autofit()
+  
+  ft_ave
+} else {
+  cat("AVE and CR values are not available for this model.\n")
+}
+```
+
+```{r structural-model-headers, results='asis', echo=FALSE, eval=(params$model_type == "SEM")}
+cat("\n## Structural Model Paths\n\n")
+cat("The following table presents the estimated regression paths between the structural/latent variables in the final model.\n\n")
+```
+
+```{r structural-model-table, echo=FALSE, eval=(params$model_type == "SEM")}
+pe <- parameterEstimates(params$fit_final, standardized = TRUE)
+struct_paths <- pe[pe$op == "~", ]
+
+if (nrow(struct_paths) > 0) {
+  sp_df <- data.frame(
+    Dependent = struct_paths$lhs,
+    Predictor = struct_paths$rhs,
+    Estimate = struct_paths$est,
+    Std.Error = struct_paths$se,
+    z = struct_paths$z,
+    pvalue = struct_paths$pvalue,
+    Std.Estimate = struct_paths$std.all
+  )
+  
+  ft_struct <- flextable(sp_df) %>%
+    colformat_double(j = c("Estimate", "Std.Error", "z", "Std.Estimate"), digits = 3) %>%
+    colformat_double(j = "pvalue", digits = 3) %>%
+    set_caption("Structural Regression Paths") %>%
+    autofit()
+  
+  ft_struct
+} else {
+  # nothing
+}
+```
+
+### Heterotrait-Monotrait Ratio (HTMT)
+
+```{r htmt}
+if(!is.null(params$htmt) && !identical(params$htmt, NA) && !identical(params$htmt, "<NA>")) {
+  htmt_mat <- as.matrix(params$htmt)
+  
+  # Replace upper triangle and diagonal with NA for cleaner display
+  htmt_mat[upper.tri(htmt_mat, diag = TRUE)] <- NA
+  
+  htmt_df <- as.data.frame(htmt_mat)
+  htmt_df <- cbind(Factor = rownames(htmt_df), htmt_df)
+  rownames(htmt_df) <- NULL
+  
+  ft_htmt <- flextable(htmt_df) %>%
+    colformat_double(j = 2:ncol(htmt_df), digits = 3, na_str = "") %>%
+    set_caption("Discriminant Validity: Heterotrait-Monotrait Ratio (HTMT)") %>%
+    autofit()
+  
+  ft_htmt
+} else {
+  cat("HTMT ratio is not available for this model.\n")
+}
+```
+
+## Path Plots
+
+### Initial Model (Monochrome)
+
+```{r path-plot-initial, fig.width=params$plotwidth, fig.height=params$plotheight, dpi=300}
+library(semPlot)
+library(semptools)
+
+A_init <- semPaths(
+  params$fit_initial,
+  what = ifelse(params$plot_standardized, "std", "est"),
+  style = params$plot_style,
+  layout = params$plot_layout,
+  residuals = params$plot_residuals,
+  exoCov = params$plot_exoCov,
+  edge.label.cex = params$plot_edge_label_size,
+  nCharNodes = 6,
+  nCharEdges = 6,
+  sizeLat = params$plot_nodesize_lat,
+  sizeMan = params$plot_nodesize_man,
+  sizeMan2 = params$plot_nodesize_man2,
+  rotation = params$plot_rotation,
+  color = list(man = "white", lat = "white"), 
+  label.color = "black",
+  mar = c(2, 5, 5, 5),
+  bifactor = if(is.null(params$bifactor) || params$bifactor == "") NULL else params$bifactor,
+  esize = params$edgewidth,
+  edge.color = "black",       
+  freeStyle = c(1, "black"),
+  fixedStyle = c(2, "black"),
+  fade = FALSE,
+  DoNotPlot = TRUE
+)
+
+# Render plot with significance markers
+plot(semptools::mark_sig(semPaths_plot = A_init, object = params$fit_initial,
+                         alphas = c("*" = 0.05, "**" = 0.01, "***" = 0.001)))
+```
+
+### Final Model (Colored)
+
+```{r path-plot, fig.width=params$plotwidth, fig.height=params$plotheight, dpi=300}
+A <- semPaths(
+  params$fit_final,
+  what = ifelse(params$plot_standardized, "std", "est"),
+  style = params$plot_style,
+  layout = params$plot_layout,
+  residuals = params$plot_residuals,
+  exoCov = params$plot_exoCov,
+  edge.label.cex = params$plot_edge_label_size,
+  nCharNodes = 6,
+  nCharEdges = 6,
+  sizeLat = params$plot_nodesize_lat,
+  sizeMan = params$plot_nodesize_man,
+  sizeMan2 = params$plot_nodesize_man2,
+  rotation = params$plot_rotation,
+  color = list(man = params$man_col, lat = params$lat_col),
+  label.color = "black",
+  mar = c(2, 5, 5, 5),
+  bifactor = if(is.null(params$bifactor) || params$bifactor == "") NULL else params$bifactor,
+  esize = params$edgewidth,
+  edge.color = "black",       
+  freeStyle = c(1, "black"),
+  fixedStyle = c(2, "black"),
+  fade = FALSE,
+  DoNotPlot = TRUE
+)
+
+# Render plot with significance markers
+plot(semptools::mark_sig(semPaths_plot = A, object = params$fit_final,
+                         alphas = c("*" = 0.05, "**" = 0.01, "***" = 0.001)))
+```
+
+## References
+
+* Djidu, H., Retnawati, H., Hadi, S., & Haryanto. (2026). projectLSA: A Shiny Application for Integrated Latent Structure Analysis. *Applied Psychological Measurement*. Advance online publication. https://doi.org/10.1177/01466216261446305
+* Djidu, H., Retnawati, H., Hadi, S., & Haryanto. (2026). *projectLSA: R Shiny application for latent structure analysis with a graphical user interface*. https://doi.org/10.32614/CRAN.package.projectLSA. R package.
+* Hu, L., & Bentler, P. M. (1999). Cutoff criteria for fit indexes in covariance structure analysis: Conventional criteria versus new alternatives. *Structural Equation Modeling: A Multidisciplinary Journal*, 6(1), 1–55. https://doi.org/10.1080/10705519909540118
+
+***
+*Generated by projectLSA*

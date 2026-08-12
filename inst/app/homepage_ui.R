@@ -26,6 +26,17 @@ homepage_ui <- function() {
             
         ),
         br(),
+        div(
+          style = "max-width: 720px; margin: 0 auto 10px auto; padding: 8px 14px; font-size: 11px; color: #374151; background: #f0f7fb; border-left: 4px solid #2563eb; border-radius: 4px; text-align: left;",
+          HTML(
+            "<strong>New in 0.1.1 &mdash; AI Assistant.</strong> Every module now has a floating
+             <em>AI Assistant</em> (bottom right) that can answer questions about your results and
+             draft a summary for your manuscript. Open its <em>Settings</em> tab and paste your own
+             API key (Gemini, OpenAI, Groq, or OpenRouter) to enable it. The key is used
+             only for your session and is never stored by the package; no data leaves your computer
+             until you provide a key and send a request."
+          )
+        ),
         div(class="subtitle","Choose one projectLSA you want to work on:")
     ),
     br(),

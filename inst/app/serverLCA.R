@@ -1,5 +1,5 @@
 # ==== Reactive Data LCA ====
-server_lca <- function(input, output, session) {
+server_lca <- function(input, output, session, ai_context, console_context) {
   library(poLCA)
   library(tidyverse)
   library(ggiraph)
@@ -7,9 +7,16 @@ server_lca <- function(input, output, session) {
   library(glca)
   library(stats)
   library(haven)
-  
+
   best_c_r <- reactiveVal(NULL)
   set.seed(100)
+
+  # Fitted models are held in a reactiveVal (instead of eventReactive) so that a
+  # saved workspace can be restored straight into them.
+  lca_models <- reactiveVal(NULL)
+
+  # Variables selected in a restored workspace, applied once the picker exists
+  lca_restored_vars <- reactiveVal(NULL)
 observeEvent(input$run_lca, {
   req(data_lca(), input$vars_lca)
   updateTabsetPanel(session, "main_tab_lca", selected = "fit_tab_lca")
@@ -43,18 +50,46 @@ data_source <- reactive({
     req(input$datafile_lca)
     showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
     ext <- tolower(tools::file_ext(input$datafile_lca$name))
-    df <- switch(
-      ext,
-      "csv"  = data.table::fread(input$datafile_lca$datapath,data.table = FALSE),
-      "xls"  = readxl::read_excel(input$datafile_lca$datapath),
-      "xlsx" = readxl::read_excel(input$datafile_lca$datapath),
-      "sav"  = haven::read_sav(input$datafile_lca$datapath),
-      "rds"  = readRDS(input$datafile_lca$datapath),
-      stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
-    )
+
+    if (ext == "rds") {
+      res <- readRDS(input$datafile_lca$datapath)
+      if (is.list(res) && !is.data.frame(res) && identical(res$type, "projectLSA_workspace")) {
+        if (!identical(res$module, "LCA")) {
+          removeModal()
+          stop("Uploaded workspace belongs to a different module: ", res$module)
+        }
+        # Restore workspace state
+        lca_models(res$lca_models)
+        df <- res$raw_data
+
+        st <- res$input_state
+        if (!is.null(st)) {
+          if (!is.null(st$min_class_lca))  updateNumericInput(session, "min_class_lca", value = st$min_class_lca)
+          if (!is.null(st$max_class_lca))  updateNumericInput(session, "max_class_lca", value = st$max_class_lca)
+          if (!is.null(st$best_class_lca)) updateNumericInput(session, "best_class_lca", value = st$best_class_lca)
+          if (!is.null(st$use_cov_lca))    updateCheckboxInput(session, "use_cov_lca", value = st$use_cov_lca)
+          if (!is.null(st$cov_lca))        updateSelectInput(session, "cov_lca", selected = st$cov_lca)
+          if (!is.null(st$vars_lca))       lca_restored_vars(st$vars_lca)
+        }
+        showNotification("LCA Workspace restored successfully!", type = "message")
+      } else {
+        df <- res
+      }
+    } else {
+      df <- switch(
+        ext,
+        "csv"  = data.table::fread(input$datafile_lca$datapath,data.table = FALSE),
+        "xls"  = readxl::read_excel(input$datafile_lca$datapath),
+        "xlsx" = readxl::read_excel(input$datafile_lca$datapath),
+        "sav"  = haven::read_sav(input$datafile_lca$datapath),
+        stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
+      )
+    }
     removeModal()
-    df <- df %>% mutate(across(everything(), ~ifelse(.x=="", NA, .x)),
-                        id_auto = paste0("id_", sprintf("%04d", 1:n())))
+    if (!"id_auto" %in% names(df)) {
+      df <- df %>% mutate(across(everything(), ~ifelse(.x=="", NA, .x)),
+                          id_auto = paste0("id_", sprintf("%04d", 1:n())))
+    }
   }
   return(df)
 })
@@ -83,11 +118,17 @@ output$id_select_ui_lca <- renderUI({
 # ==== Pilih variabel ====
 output$var_select_ui_lca <- renderUI({
   req(data_source())
+  restored <- lca_restored_vars()
+  sel <- if (!is.null(restored)) {
+    intersect(restored, names(data_source()))
+  } else {
+    names(data_source()%>% dplyr::select(-c(id_auto)))[1:min(2,ncol(data_source()))]
+  }
   selectInput(
     "vars_lca",
     label = "Select Variables for LCA:",
     choices = names(data_source()),
-    selected = names(data_source()%>% dplyr::select(-c(id_auto)))[1:min(2,ncol(data_source()))],
+    selected = sel,
     multiple = TRUE  )
 })
 
@@ -115,7 +156,10 @@ output$cov_lca_ui <- renderUI({
 
 
 observeEvent(c(input$data_source_lca, input$datafile_lca), {
-  updateSelectInput(session,"vars_lca",selected = "") 
+  # Keep the selection that came from a restored workspace
+  if (is.null(lca_restored_vars())) {
+    updateSelectInput(session, "vars_lca", selected = "")
+  }
 }, ignoreInit = TRUE)
 
 # ==== Preview Data ====
@@ -193,8 +237,10 @@ output$data_description <- renderUI({
 })
 
 # ==== Fit LCA ====
-lca_models <- eventReactive(input$run_lca, { 
+observeEvent(input$run_lca, {
   req(data_lca(), input$vars_lca)
+  # A fresh run invalidates any restored workspace selection
+  lca_restored_vars(NULL)
   df <- data_lca()
   showModal(modalDialog(title = NULL, "Please wait, (Running LCA)...", footer = NULL, easyClose = FALSE))
   
@@ -312,10 +358,10 @@ lca_models <- eventReactive(input$run_lca, {
   }
   })
   removeModal()
-  list(
+  lca_models(list(
     polca = polca_models,
     glca   = gof_glca
-  )
+  ))
 })
 
 
@@ -1439,4 +1485,143 @@ output$crosstab_cont_plot <- renderPlot({
     )
 })
 
+
+# ==== R Console Output ====
+observeEvent(lca_models(), {
+  req(lca_models(), input$best_class_lca)
+  model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
+  if (!is.null(model_k)) {
+    console_context$text <- paste(capture.output(print(model_k)), collapse = "\n")
+  }
+})
+
+# ==== AI Assistant context ====
+observe({
+  res_text <- ""
+  if (!is.null(lca_models())) {
+    gof <- lca_models()$glca
+    if (!is.null(gof)) {
+      res_text <- paste0(
+        "=== LCA MODEL FIT COMPARISON ===\n",
+        paste(capture.output(print(as.data.frame(gof))), collapse = "\n"), "\n\n"
+      )
+    }
+    if (!is.null(input$best_class_lca)) {
+      model_k <- lca_models()$polca[[as.character(input$best_class_lca)]]
+      if (!is.null(model_k)) {
+        res_text <- paste0(
+          res_text,
+          "=== SELECTED MODEL (", input$best_class_lca, " CLASSES) ===\n",
+          paste(capture.output(print(model_k)), collapse = "\n"), "\n\n",
+          "=== CLASS PREVALENCE ===\n",
+          paste(capture.output(print(round(model_k$P, 4))), collapse = "\n"), "\n\n",
+          "=== ITEM-RESPONSE PROBABILITIES ===\n",
+          paste(capture.output(print(lapply(model_k$probs, function(x) round(x, 4)))), collapse = "\n"), "\n"
+        )
+      }
+    }
+  }
+  ai_context$results_text <- res_text
+  ai_context$module <- "Latent Class Analysis (LCA)"
+})
+
+# ==== Save Project (workspace .rds) ====
+output$export_lca_rds <- downloadHandler(
+  filename = function() paste0("LCA_Workspace_", Sys.Date(), ".rds"),
+  content = function(file) {
+    req(lca_models())
+    workspace <- list(
+      type = "projectLSA_workspace",
+      module = "LCA",
+      version = "0.1.1",
+      saved_at = Sys.time(),
+      raw_data = data_source(),
+      lca_models = lca_models(),
+      input_state = list(
+        vars_lca = input$vars_lca,
+        cov_lca = input$cov_lca,
+        use_cov_lca = input$use_cov_lca,
+        min_class_lca = input$min_class_lca,
+        max_class_lca = input$max_class_lca,
+        best_class_lca = input$best_class_lca
+      )
+    )
+    saveRDS(workspace, file)
+  }
+)
+
+# ==== HTML Report ====
+# Per-session directory, so concurrent users never share a report file
+lca_report_res <- session_report_dir(session, "lca")
+lca_report_path <- reactiveVal(NULL)
+
+generate_lca_report <- function(progress_label = "Generating Report...") {
+  if (is.null(lca_models())) return(NULL)
+
+  report_path <- file.path(system.file("app", package = "projectLSA"), "lca_report.Rmd")
+  if (report_path == "" || !file.exists(report_path)) {
+    report_path <- "lca_report.Rmd"
+  }
+  tempReport <- file.path(lca_report_res$path, "lca_report.Rmd")
+  file.copy(report_path, tempReport, overwrite = TRUE)
+
+  out_html <- file.path(lca_report_res$path, "lca_report_out.html")
+
+  k <- input$best_class_lca
+  model_k <- lca_models()$polca[[as.character(k)]]
+
+  showModal(modalDialog(progress_label, footer = NULL))
+  ok <- tryCatch({
+    rmarkdown::render(tempReport,
+      output_file = out_html,
+      params = list(
+        fit_compare = tryCatch(as.data.frame(fit_lca()), error = function(e) NULL),
+        best_k = k,
+        model_best = model_k,
+        class_plot = tryCatch(best_model_plot_lca_static(), error = function(e) NULL),
+        summary_tbl = tryCatch(summary_data_lca(), error = function(e) NULL),
+        selected_vars = input$vars_lca,
+        console_out = console_context$text,
+        ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
+      ),
+      envir = new.env(parent = globalenv())
+    )
+    lca_report_path(out_html)
+    TRUE
+  }, error = function(e) {
+    showNotification(paste("Error rendering report:", e$message), type = "error")
+    FALSE
+  }, finally = {
+    removeModal()
+  })
+
+  if (isTRUE(ok)) out_html else NULL
+}
+
+observeEvent(input$lca_generate_preview, {
+  req(lca_models())
+  generate_lca_report("Generating Report Preview...")
+})
+
+output$lca_report_preview_frame <- renderUI({
+  req(lca_report_path())
+  tags$iframe(
+    src = paste0(lca_report_res$prefix, "/lca_report_out.html?v=", as.integer(Sys.time())),
+    width = "100%", height = "800px", style = "border: none;"
+  )
+})
+
+output$download_report_lca <- downloadHandler(
+  filename = function() paste0("LCA_Report_", Sys.Date(), ".html"),
+  content = function(file) {
+    req(lca_models())
+    path <- lca_report_path()
+    if (is.null(path) || !file.exists(path)) {
+      path <- generate_lca_report("Generating Report...")
+    }
+    req(path)
+    file.copy(path, file, overwrite = TRUE)
+  },
+  contentType = "text/html"
+)
 }

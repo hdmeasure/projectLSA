@@ -563,5 +563,14 @@ styleCSS <- tags$head(
   transform: translateY(0) scale(1);
 }
 
+/* ==== Floating widgets (AI Assistant & R Console) ==== */
+.floating-widget {
+  opacity: 0.6;
+  transition: opacity 0.3s ease-in-out;
+}
+.floating-widget:hover {
+  opacity: 1.0;
+}
+
   "))
 )

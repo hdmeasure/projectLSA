@@ -23,11 +23,20 @@ source("serverLTA.R")
 source("reference_list.R")
 source("simDataDesc.R")
 source("downloadPlot.R")
+source("report_utils.R")
 source("styleCSS.R")
+
+# ==== AI Assistant ====
+source("ai_helper.R")
+source("ai_widget_ui.R")
+source("serverAIWidget.R")
+source("console_widget_ui.R")
 
 # ==== Main Library ======
 library(shiny)
 library(shinyWidgets)
+library(httr)
+library(jsonlite)
 library(DT)
 library(readxl)
 library(dplyr)
@@ -36,15 +45,66 @@ library(stringr)
 library(tidyverse)
 library(plotly)
 library(tidyr)
+library(shinyBS)
+library(haven)
+
 options(shiny.maxRequestSize = 500 * 1024^2) # 300 MB
 
 # ===== UI =====
 ui <- fluidPage(
   styleCSS,
-  uiOutput("mainUI")
+  uiOutput("mainUI"),
+  ai_widget_ui(),
+  console_widget_ui()
 )
 # ==== Server =====
 server <- function(input, output, session) {
+
+  # Global AI context: filled by each analysis module with its latest results
+  ai_context <- reactiveValues(results_text = "", module = "", ai_report_text = NULL)
+
+  # Global AI widget logic (chat, summary, settings)
+  server_ai_widget(input, output, session, ai_context)
+
+  # Global R console context
+  console_context <- reactiveValues(text = "No R output yet.")
+  output$global_console_output <- renderPrint({
+    cat(console_context$text)
+  })
+
+  # === AI Settings Logic ===
+  observeEvent(input$ai_provider, {
+    providers <- ai_providers()
+    selected <- input$ai_provider
+    if (selected %in% names(providers)) {
+      updateTextInput(session, "ai_model", value = providers[[selected]]$default_model)
+    }
+  })
+
+  observeEvent(input$test_ai_connection, {
+    req(input$ai_provider, input$ai_api_key)
+    output$ai_connection_status_ui <- renderUI({
+      tags$span(style = "color: blue;", "Testing...")
+    })
+
+    res <- ask_ai(
+      prompt = "Hello! Please reply with exactly 'Connection OK'.",
+      provider = input$ai_provider,
+      model = input$ai_model,
+      api_key = input$ai_api_key
+    )
+
+    if (grepl("Error", res, ignore.case = TRUE) || grepl("HTTP", res)) {
+      output$ai_connection_status_ui <- renderUI({
+        tags$span(style = "color: red;", res)
+      })
+    } else {
+      output$ai_connection_status_ui <- renderUI({
+        tags$span(style = "color: green; font-weight: bold;", icon("check"), " Connection OK")
+      })
+    }
+  })
+
   observeEvent(TRUE,
     {
       showModal(modalDialog(
@@ -176,12 +236,19 @@ server <- function(input, output, session) {
   # === Logic server: jalankan modul sesuai project aktif ===
   observeEvent(project(), {
     current <- project()
+    # Reset the shared AI/console context when switching modules so the
+    # assistant never reasons over results from a previous analysis.
+    if (current != "home") {
+      ai_context$results_text <- ""
+      ai_context$module <- ""
+      console_context$text <- "No R output yet."
+    }
     switch(current,
-      "lpa" = server_lpa(input, output, session),
-      "efa" = server_efa(input, output, session),
-      "cfa" = server_cfa(input, output, session),
-      "lca" = server_lca(input, output, session),
-      "lta" = server_lta(input, output, session),
+      "lpa" = server_lpa(input, output, session, ai_context, console_context),
+      "efa" = server_efa(input, output, session, ai_context, console_context),
+      "cfa" = server_cfa(input, output, session, ai_context, console_context),
+      "lca" = server_lca(input, output, session, ai_context, console_context),
+      "lta" = server_lta(input, output, session, ai_context, console_context),
       NULL
     )
   })

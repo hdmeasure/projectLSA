@@ -27,16 +27,14 @@ Useful links:
   \item Report bugs at \url{https://github.com/hdmeasure/projectLSA/issues}
 }
 
-
-Useful links:
-\itemize{
-  \item \url{https://github.com/hdmeasure/projectLSA}
-  \item Report bugs at \url{https://github.com/hdmeasure/projectLSA/issues}
-}
-
 }
 \author{
 \strong{Maintainer}: Hasan Djidu \email{hasandjidu@gmail.com} (\href{https://orcid.org/0000-0003-1110-6815}{ORCID})
+
+Authors:
+\itemize{
+  \item Hasan Djidu \email{hasandjidu@gmail.com} (\href{https://orcid.org/0000-0003-1110-6815}{ORCID})
+}
 
 Other contributors:
 \itemize{

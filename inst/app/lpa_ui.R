@@ -27,7 +27,7 @@ lpa_ui <- function(project) {
           ),
           conditionalPanel(
             condition = "input.data_source == 'upload'",
-            fileInput("datafile", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx"))
+            fileInput("datafile", "Upload Data/Workspace (csv/xlsx/sav/rds)", accept = c(".csv", ".xlsx", ".sav", ".rds"))
           ),
           #fileInput("datafile", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx")),
           uiOutput("id_select_ui"),
@@ -47,12 +47,15 @@ lpa_ui <- function(project) {
             selected = 1,
             multiple = TRUE
           ),
-          actionButton("run_lpa", 
-                       label = tagList(icon("play"), "Run LPA"), 
+          actionButton("run_lpa",
+                       label = tagList(icon("play"), "Run LPA"),
                        class = "btn btn-success btn-block",
-                       style = "width: 100% !important;")
-          
-          
+                       style = "width: 100% !important; margin-bottom: 10px;"),
+          downloadButton("export_lpa_rds", "Save Project (.rds)",
+                         class = "btn btn-primary",
+                         style = "width: 100% !important;")
+
+
         ),
         mainPanel(
           width = 9,
@@ -213,6 +216,24 @@ lpa_ui <- function(project) {
              br()
       )
     ),
+
+    # --- Report Preview ----
+    tabPanel(
+      title = tagList(icon("file-alt"), "Report Preview"),
+      column(
+        12,
+        br(),
+        div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
+            actionButton("lpa_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
+            downloadButton("download_report_lpa", "Download HTML Report", class = "btn btn-primary")
+        ),
+        div(
+          style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
+          uiOutput("lpa_report_preview_frame")
+        )
+      )
+    ),
+
     tabPanel(
       title = tagList(icon("info-circle"), "About"),
       fluidRow(

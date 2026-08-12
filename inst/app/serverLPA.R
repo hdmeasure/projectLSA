@@ -1,5 +1,5 @@
 # ==== server_lpa.R ====
-server_lpa <- function(input, output, session) {
+server_lpa <- function(input, output, session, ai_context, console_context) {
   library(tidyLPA)
   library(mclust)
   library(ggplot2)
@@ -8,31 +8,72 @@ server_lpa <- function(input, output, session) {
   library(data.table)
   set.seed(100)
 
+  # Results are held in reactiveVal (instead of eventReactive) so that a saved
+  # workspace can be restored straight into them.
+  fitcompare <- reactiveVal(NULL)
+  models <- reactiveVal(NULL)
+
+  # Variables selected in a restored workspace, applied once the picker exists
+  lpa_restored_vars <- reactiveVal(NULL)
+
   # --- Upload data ----
   data_user <- reactive({
     if (input$data_source == "pisaUSA15") {
       df <- tidyLPA::pisaUSA15[1:500,]%>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
     } else if (input$data_source == "curry_mac") {
       df <- tidyLPA::curry_mac %>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
-      
+
     } else if (input$data_source == "id_edu") {
       df <- tidyLPA::id_edu %>% mutate(id_auto = paste0("id_", sprintf("%04d", 1:n())))
     } else {
       req(input$datafile)
       ext <- tolower(tools::file_ext(input$datafile$name))
       showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
-      df <- switch(
-        ext,
-        "csv"  = data.table::fread(input$datafile$datapath,data.table = FALSE),
-        "xls"  = readxl::read_excel(input$datafile$datapath),
-        "xlsx" = readxl::read_excel(input$datafile$datapath),
-        "sav"  = haven::read_sav(input$datafile$datapath),
-        "rds"  = readRDS(input$datafile$datapath),
-        stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
-      )
+
+      if (ext == "rds") {
+        res <- readRDS(input$datafile$datapath)
+        if (is.list(res) && !is.data.frame(res) && identical(res$type, "projectLSA_workspace")) {
+          if (!identical(res$module, "LPA")) {
+            removeModal()
+            stop("Uploaded workspace belongs to a different module: ", res$module)
+          }
+          # Restore workspace state
+          fitcompare(res$fitcompare)
+          models(res$models)
+          df <- res$raw_data
+
+          # Restore UI inputs
+          st <- res$input_state
+          if (!is.null(st)) {
+            if (!is.null(st$min_profiles)) updateNumericInput(session, "min_profiles", value = st$min_profiles)
+            if (!is.null(st$max_profiles)) updateNumericInput(session, "max_profiles", value = st$max_profiles)
+            if (!is.null(st$model_to_run)) updateSelectInput(session, "model_to_run", selected = st$model_to_run)
+            if (!is.null(st$model_type))   updateSelectInput(session, "model_type", selected = st$model_type)
+            if (!is.null(st$best_k))       updateNumericInput(session, "best_k", value = st$best_k)
+            if (!is.null(st$selected_vars)) {
+              # var_select_ui is rendered from the data, so defer the selection
+              lpa_restored_vars(st$selected_vars)
+            }
+          }
+          showNotification("LPA Workspace restored successfully!", type = "message")
+        } else {
+          df <- res
+        }
+      } else {
+        df <- switch(
+          ext,
+          "csv"  = data.table::fread(input$datafile$datapath,data.table = FALSE),
+          "xls"  = readxl::read_excel(input$datafile$datapath),
+          "xlsx" = readxl::read_excel(input$datafile$datapath),
+          "sav"  = haven::read_sav(input$datafile$datapath),
+          stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
+        )
+      }
       removeModal()
-      df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
-                          id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      if (!"id_auto" %in% names(df)) {
+        df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
+                            id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      }
     }
     return(df)
   })
@@ -71,17 +112,26 @@ server_lpa <- function(input, output, session) {
   # --- Pilih variabel ---
   output$var_select_ui <- renderUI({
     req(data_user())
+    restored <- lpa_restored_vars()
+    sel <- if (!is.null(restored)) {
+      intersect(restored, names(data_user()))
+    } else {
+      names(data_user())[1:min(3, ncol(data_user()))]
+    }
     selectInput(
       "selected_vars",
       label = "Select Variables for LPA:",
       choices = names(data_user()),
-      selected = names(data_user())[1:min(3, ncol(data_user()))],
-      multiple = TRUE 
+      selected = sel,
+      multiple = TRUE
       )
   })
-  
+
   observeEvent(c(input$data_source, input$datafile), {
-    updateSelectInput(session,"selected_vars",selected = "") 
+    # Keep the selection that came from a restored workspace
+    if (is.null(lpa_restored_vars())) {
+      updateSelectInput(session, "selected_vars", selected = "")
+    }
   }, ignoreInit = TRUE)
   
   # --- Data preview ----
@@ -156,8 +206,10 @@ server_lpa <- function(input, output, session) {
     req(data_user(), input$selected_vars)
     updateTabsetPanel(session, "main_tab_lpa", selected = "fit_tab")
   })
-  fitcompare <- eventReactive(input$run_lpa, {
+  observeEvent(input$run_lpa, {
     req(data_user(), input$selected_vars, input$model_to_run)
+    # A fresh run invalidates any restored workspace selection
+    lpa_restored_vars(NULL)
     showModal(modalDialog(title = NULL, "Please wait, running LPA...", footer = NULL, easyClose = FALSE))
     df <- data_user() %>% dplyr::select(input$selected_vars)
     df <- df %>% mutate(across(everything(), as.numeric))
@@ -181,7 +233,7 @@ server_lpa <- function(input, output, session) {
     
     withProgress(message = "Running...", {
       incProgress(1/(max_k-min_k+1), detail = paste("Compare LPA results"))
-      fitcompare <- df %>%
+      fit_res <- df %>%
         tidyLPA::single_imputation() %>%   # ← ini kuncinya
         tidyLPA::estimate_profiles(
           n_profiles = min_k:max_k,
@@ -190,14 +242,16 @@ server_lpa <- function(input, output, session) {
           #model = model_to_run
         ) %>%
         tidyLPA::get_fit()
-      fitcompare <- as.data.frame(fitcompare) %>% dplyr::rename(n_profiles=Classes)
+      fit_res <- as.data.frame(fit_res) %>% dplyr::rename(n_profiles=Classes)
       removeModal()
       showNotification("LPA completed successfully!", type = "message")
     })
-    fitcompare
+    fitcompare(fit_res)
   })
-  
-  models <- eventReactive(c(input$best_k, input$model_type), {
+
+  # Also re-estimate when a new comparison run finishes, so the Best Model tab is
+  # populated straight after "Run LPA" instead of waiting for the user to touch a control.
+  observeEvent(c(input$best_k, input$model_type, fitcompare()), {
     req(data_user(), fitcompare(),input$selected_vars, input$best_k)
     df <- data_user()[, input$selected_vars]
     df <- df %>% mutate(across(everything(), as.numeric))
@@ -221,7 +275,7 @@ server_lpa <- function(input, output, session) {
       showNotification("Estimation completed successfully!", type = "message")
       })
     }
-    model_list
+    models(model_list)
    
   })
   
@@ -989,4 +1043,139 @@ server_lpa <- function(input, output, session) {
   
   
   
+
+  # ==== R Console Output ====
+  observeEvent(models(), {
+    req(models(), input$best_k)
+    model_k <- models()[[as.character(input$best_k)]]
+    if (!is.null(model_k)) {
+      console_context$text <- paste(capture.output(print(model_k)), collapse = "\n")
+    }
+  })
+
+  # ==== AI Assistant context ====
+  observe({
+    res_text <- ""
+    if (!is.null(fitcompare())) {
+      res_text <- paste0(
+        "=== LPA MODEL FIT COMPARISON ===\n",
+        paste(capture.output(print(as.data.frame(fitcompare()))), collapse = "\n"), "\n\n"
+      )
+    }
+    if (!is.null(models()) && !is.null(input$best_k)) {
+      model_k <- models()[[as.character(input$best_k)]]
+      if (!is.null(model_k)) {
+        res_text <- paste0(
+          res_text,
+          "=== SELECTED MODEL (", input$best_k, " PROFILES) ===\n",
+          paste(capture.output(print(model_k)), collapse = "\n"), "\n\n",
+          "=== PROFILE PARAMETER ESTIMATES ===\n",
+          paste(capture.output(print(as.data.frame(tidyLPA::get_estimates(model_k)))), collapse = "\n"), "\n"
+        )
+      }
+    }
+    ai_context$results_text <- res_text
+    ai_context$module <- "Latent Profile Analysis (LPA)"
+  })
+
+  # ==== Save Project (workspace .rds) ====
+  output$export_lpa_rds <- downloadHandler(
+    filename = function() paste0("LPA_Workspace_", Sys.Date(), ".rds"),
+    content = function(file) {
+      req(fitcompare())
+      workspace <- list(
+        type = "projectLSA_workspace",
+        module = "LPA",
+        version = "0.1.1",
+        saved_at = Sys.time(),
+        raw_data = data_user(),
+        fitcompare = fitcompare(),
+        models = models(),
+        input_state = list(
+          selected_vars = input$selected_vars,
+          min_profiles = input$min_profiles,
+          max_profiles = input$max_profiles,
+          model_to_run = input$model_to_run,
+          model_type = input$model_type,
+          best_k = input$best_k
+        )
+      )
+      saveRDS(workspace, file)
+    }
+  )
+
+  # ==== HTML Report ====
+  # Per-session directory, so concurrent users never share a report file
+  lpa_report_res <- session_report_dir(session, "lpa")
+  lpa_report_path <- reactiveVal(NULL)
+
+  generate_lpa_report <- function(progress_label = "Generating Report...") {
+    if (is.null(fitcompare())) return(NULL)
+
+    report_path <- file.path(system.file("app", package = "projectLSA"), "lpa_report.Rmd")
+    if (report_path == "" || !file.exists(report_path)) {
+      report_path <- "lpa_report.Rmd"
+    }
+    tempReport <- file.path(lpa_report_res$path, "lpa_report.Rmd")
+    file.copy(report_path, tempReport, overwrite = TRUE)
+
+    out_html <- file.path(lpa_report_res$path, "lpa_report_out.html")
+
+    best_k <- input$best_k
+    model_k <- if (!is.null(models())) models()[[as.character(best_k)]] else NULL
+
+    showModal(modalDialog(progress_label, footer = NULL))
+    ok <- tryCatch({
+      rmarkdown::render(tempReport,
+        output_file = out_html,
+        params = list(
+          fit_compare = as.data.frame(fitcompare()),
+          best_k = best_k,
+          model_best = model_k,
+          profile_plot = tryCatch(best_model_plot_reactive(), error = function(e) NULL),
+          summary_tbl = tryCatch(summary_data(), error = function(e) NULL),
+          selected_vars = input$selected_vars,
+          console_out = console_context$text,
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
+        ),
+        envir = new.env(parent = globalenv())
+      )
+      lpa_report_path(out_html)
+      TRUE
+    }, error = function(e) {
+      showNotification(paste("Error rendering report:", e$message), type = "error")
+      FALSE
+    }, finally = {
+      removeModal()
+    })
+
+    if (isTRUE(ok)) out_html else NULL
+  }
+
+  observeEvent(input$lpa_generate_preview, {
+    req(fitcompare())
+    generate_lpa_report("Generating Report Preview...")
+  })
+
+  output$lpa_report_preview_frame <- renderUI({
+    req(lpa_report_path())
+    tags$iframe(
+      src = paste0(lpa_report_res$prefix, "/lpa_report_out.html?v=", as.integer(Sys.time())),
+      width = "100%", height = "800px", style = "border: none;"
+    )
+  })
+
+  output$download_report_lpa <- downloadHandler(
+    filename = function() paste0("LPA_Report_", Sys.Date(), ".html"),
+    content = function(file) {
+      req(fitcompare())
+      path <- lpa_report_path()
+      if (is.null(path) || !file.exists(path)) {
+        path <- generate_lpa_report("Generating Report...")
+      }
+      req(path)
+      file.copy(path, file, overwrite = TRUE)
+    },
+    contentType = "text/html"
+  )
 }

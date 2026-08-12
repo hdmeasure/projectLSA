@@ -26,7 +26,7 @@ efa_ui <- function(project) {
           
           conditionalPanel(
             condition = "input.data_source == 'upload'",
-            fileInput("datafile", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx"))),
+            fileInput("datafile", "Upload Data/Workspace (csv/xlsx/sav/rds)", accept = c(".csv", ".xlsx", ".sav", ".rds"))),
           uiOutput("id_select_ui_fa"),
           uiOutput("var_select_ui"),
           br(),
@@ -38,13 +38,48 @@ efa_ui <- function(project) {
                                   "Mean Imputation" = "mean")),
           br(),
           actionButton("run_efa", label = tagList(icon("play"), "Run EFA"),
-                       class = "btn btn-success btn-block",
-                       style = "width: 100% !important;")
+                       class = "btn btn-success",
+                       style = "width: 100% !important; margin-bottom: 10px;"),
+          downloadButton("export_efa_rds", "Export Model (.rds)", 
+                         class = "btn btn-primary", 
+                         style = "width: 100% !important;")
         ),
         
         mainPanel(
           width = 9,
-          DTOutput("data_preview_fa")
+          DTOutput("data_preview_fa"),
+          tags$hr(),
+          bsCollapse(id = "efa_data_preview_collapse", multiple = TRUE,
+            bsCollapsePanel("Data Summary", style = "default",
+              fluidRow(
+                column(12, selectInput("efa_summary_theme", "Chart Theme:", choices = c("Default" = "default", "Pastel" = "pastel", "Blue" = "blue", "Dark" = "dark")))
+              ),
+              tabsetPanel(
+                tabPanel("Summary Table", 
+                         br(),
+                         uiOutput("efa_summary_table")
+                ),
+                tabPanel("Visualizations", 
+                         br(),
+                         fluidRow(
+                           column(6, plotOutput("efa_data_summary_plot", height = "350px")),
+                           column(6, plotOutput("efa_data_heatmap", height = "350px"))
+                         )
+                )
+              )
+            ),
+            bsCollapsePanel("Calculate Variable", style = "default",
+              fluidRow(
+                column(4, shinyWidgets::pickerInput("efa_agg_vars", "Variables to Calculate:", choices = NULL, multiple = TRUE, width = "100%", options = list(`actions-box` = TRUE, `live-search` = TRUE))),
+                column(3, textInput("efa_agg_name", "New Variable Name:", placeholder = "e.g., Factor1_Score")),
+                column(3, selectInput("efa_agg_method", "Calculation Method:", choices = c("Mean" = "mean", "Sum" = "sum"))),
+                column(2, 
+                       actionButton("efa_btn_aggregate", "Calculate", class = "btn-primary", style = "margin-top: 25px; width: 100%;"),
+                       actionButton("efa_btn_reset_agg", "Reset", class = "btn-danger btn-sm", style = "margin-top: 5px; width: 100%;")
+                )
+              )
+            )
+          )
         )
       )
     ),
@@ -131,6 +166,43 @@ efa_ui <- function(project) {
         )
       )
     ),
+
+    tabPanel(
+      "Score New Data",
+      sidebarLayout(
+        sidebarPanel(
+          width = 3,
+          h4("Score New Data"),
+          p("Upload new data to calculate factor scores using the fitted EFA model."),
+          downloadButton("download_efa_template", "Download Data Template (Excel)", class = "btn-info btn-block"),
+          br(),br(),
+          fileInput("efa_newdata", "Upload New Data (Excel/CSV)", accept = c(".csv", ".xlsx", ".xls")),
+          actionButton("efa_score_newdata_btn", "Calculate Scores", icon = icon("calculator"), class = "btn-success btn-block")
+        ),
+        mainPanel(
+          width = 9,
+          div(style = "text-align: right; margin-bottom: 5px;",
+              downloadButton("download_efa_newscores", "Download New Scores (.csv)", class = "btn-primary btn-sm")),
+          DTOutput("efa_newscores_table")
+        )
+      )
+    ),
+
+    tabPanel(
+      title = tagList(icon("file-alt"), " Report Preview"),
+      column(12,
+             br(),
+             div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
+                 actionButton("efa_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
+                 downloadButton("download_report_efa", "Download HTML Report", class = "btn btn-primary")
+             ),
+             div(
+               style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
+               uiOutput("efa_report_preview_frame")
+             )
+      )
+    ),
+
     tabPanel(
       title = tagList(icon("info-circle"), "About"),
       fluidRow(
@@ -154,26 +226,26 @@ efa_ui <- function(project) {
               tags$a(
                 href = "https://scholar.google.com/citations?user=7CzPTYIAAAAJ&hl=id",
                 target = "_blank",
-                "Prof. Dr. Heri Retnawati, M.Pd."), 
+                "Prof. Dr. Heri Retnawati, M.Pd."),
               tags$br(),
               "Universitas Negeri Yogyakarta"
             ),
-            
             tags$p(tags$a(
               href = "https://scholar.google.com/citations?hl=id&user=VGKeBm0AAAAJ",
               target = "_blank",
-              "Prof. Dr. Samsul Hadi"), 
+              "Prof. Dr. Samsul Hadi"),
               tags$br(),
               "Universitas Negeri Yogyakarta"
             ),
             tags$p(tags$a(
               href = "https://scholar.google.com/citations?hl=id&user=k4MA8XgAAAAJ",
               target = "_blank",
-              "Dr. Drs. Ir. Haryanto, M.Pd., M.T."), 
+              "Dr. Drs. Ir. Haryanto, M.Pd., M.T."),
               tags$br(),
               "Universitas Negeri Yogyakarta"
             ),
             tags$b("Contact:"),
+            tags$br(),
             tags$a("hasandjidu@gmail.com"),
             tags$hr()
           )

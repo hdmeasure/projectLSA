@@ -6,6 +6,7 @@ lta_ui <- function(project) {
       # --- TAB 1: Prepare Data & Model ----
       tabPanel(
         title = tagList(icon("upload"), "Prepare Data & Model"),
+        value = "prepare_tab_lta", 
         sidebarLayout(
           sidebarPanel(
             width = 3,
@@ -25,7 +26,7 @@ lta_ui <- function(project) {
             ),
             conditionalPanel(
               condition = "input.data_source_lta == 'upload'",
-              fileInput("datafile_lta", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx")),
+              fileInput("datafile_lta", "Upload Data/Workspace (csv/xlsx/sav/rds)", accept = c(".csv", ".xlsx", ".sav", ".rds")),
               selectInput("datatype", 
                           "Select Data Type:",
                           choices = c("Dicotomous" = "diko",
@@ -53,9 +54,11 @@ lta_ui <- function(project) {
             
             actionButton("run_lta",
                          label = tagList(icon("play"), "Run LTA"), 
-                         class = "btn btn-success btn-block",
-                         style = "width: 100% !important;")
-
+                         class = "btn btn-success",
+                         style = "width: 100% !important; margin-bottom: 10px;"),
+            downloadButton("export_lta_rds", "Export Model (.rds)", 
+                           class = "btn btn-primary", 
+                           style = "width: 100% !important;")
           ),
           mainPanel(
             width = 9,
@@ -106,8 +109,57 @@ lta_ui <- function(project) {
       tabPanel(
         title=tagList(icon("brain"), "Factor Scores"),
         column(12, uiOutput('fscoreLTA') )
-        
       ),
+      tabPanel(
+        title = tagList(icon("info"), "Information & Reliability"),
+        value = "info_rel_tab",
+        uiOutput("info_rel_ui")
+      ),
+      tabPanel(
+        title = tagList(icon("people-arrows"), "DIF Analysis"),
+        value = "dif_tab",
+        uiOutput("dif_ui")
+      ),
+
+      tabPanel(
+        title = tagList(icon("file-import"), "Score New Data"),
+        sidebarLayout(
+          sidebarPanel(
+            width = 3,
+            h4("Score New Data"),
+            p("Upload new data to calculate factor scores using the fitted LTA/IRT model."),
+            downloadButton("download_lta_template", "Download Data Template (Excel)", class = "btn-info btn-block"),
+            br(),br(),
+            fileInput("lta_newdata", "Upload New Data (Excel/CSV)", accept = c(".csv", ".xlsx", ".xls")),
+            actionButton("lta_score_newdata_btn", "Calculate Scores", icon = icon("calculator"), class = "btn-success btn-block")
+          ),
+          mainPanel(
+            width = 9,
+            div(style = "text-align: right; margin-bottom: 5px;",
+                downloadButton("download_lta_newscores", "Download New Scores (.csv)", class = "btn-primary btn-sm")),
+            DTOutput("lta_newscores_table")
+          )
+        )
+      ),
+
+      # =====================================
+      # Report Preview
+      # =====================================
+      tabPanel(
+        title = tagList(icon("file-alt"), " Report Preview"),
+        column(12,
+               br(),
+               div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
+                   actionButton("lta_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
+                   downloadButton("download_report_lta", "Download HTML Report", class = "btn btn-primary")
+               ),
+               div(
+                 style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
+                 uiOutput("lta_report_preview_frame")
+               )
+        )
+      ),
+      
       # ===== INFO ======
       tabPanel(
         title = tagList(icon("info-circle"), "About"),
@@ -132,26 +184,26 @@ lta_ui <- function(project) {
                 tags$a(
                   href = "https://scholar.google.com/citations?user=7CzPTYIAAAAJ&hl=id",
                   target = "_blank",
-                  "Prof. Dr. Heri Retnawati, M.Pd."), 
+                  "Prof. Dr. Heri Retnawati, M.Pd."),
                 tags$br(),
                 "Universitas Negeri Yogyakarta"
               ),
-              
               tags$p(tags$a(
                 href = "https://scholar.google.com/citations?hl=id&user=VGKeBm0AAAAJ",
                 target = "_blank",
-                "Prof. Dr. Samsul Hadi"), 
+                "Prof. Dr. Samsul Hadi"),
                 tags$br(),
                 "Universitas Negeri Yogyakarta"
               ),
               tags$p(tags$a(
                 href = "https://scholar.google.com/citations?hl=id&user=k4MA8XgAAAAJ",
                 target = "_blank",
-                "Dr. Drs. Ir. Haryanto, M.Pd., M.T."), 
+                "Dr. Drs. Ir. Haryanto, M.Pd., M.T."),
                 tags$br(),
                 "Universitas Negeri Yogyakarta"
               ),
               tags$b("Contact:"),
+              tags$br(),
               tags$a("hasandjidu@gmail.com"),
               tags$hr()
             )

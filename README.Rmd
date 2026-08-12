@@ -79,18 +79,48 @@ This opens the full Shiny application, including all LSA modules, data upload, b
 - Supports dichotomous and polytomous items.
 - Automatically fits Rasch, 2PL, 3PL (or PCM/GRM/GPCM).
 - ICC plots, test information, factor scores.
+- Test information, marginal reliability, and conditional standard error of measurement.
+- Differential item functioning (DIF) analysis with anchor-item selection.
+- Score new respondents from a fitted model using a downloadable Excel template.
 - Multi-dimensional visualization with 3D surfaces and heatmaps.
 
 ### ✔ Exploratory Factor Analysis (EFA)
 - KMO, Bartlett test, parallel analysis.
 - Factor extraction with rotation.
 - Factor scores and loading matrix export.
+- Data summary visualisations and composite-variable calculation.
+- Score new respondents from a fitted solution.
 - Clean HTML summaries for clearer interpretation.
 
-### ✔ Confirmatory Factor Analysis (CFA)
-- Lavaan model editor.
-- Fit measures, loadings, factor scores.
-- Fully customized SEM path diagrams.
+### ✔ Confirmatory Factor Analysis (CFA / SEM)
+- Lavaan model editor with a built-in methodological guide.
+- Fit measures, loadings, factor scores, AVE/CR, and HTMT.
+- Modification indices with an editable model-comparison history.
+- **Multi-group CFA** with configural, metric, scalar, and strict invariance testing,
+  plus a one-click automated all-levels comparison.
+- **Latent growth modelling** via `lavaan::growth()`.
+- Data summary visualisations, composite-variable calculation, and scoring of new data.
+- Fully customized SEM path diagrams (full model or structural model only).
+
+### ✔ Save & Restore Analysis Sessions
+- Every module can save the whole analysis session (data, fitted models, and settings)
+  to an `.rds` workspace file.
+- Reload the workspace later by uploading it as the data source and continue where you
+  left off.
+
+### ✔ HTML Reports
+- Every module renders an R Markdown report that you can preview in-app before
+  downloading.
+- Reports embed the underlying R console output and, optionally, an AI-written summary.
+
+### ✔ AI Assistant (optional)
+- A floating assistant available in every module: ask questions about the current
+  results, or generate a summary in manuscript, APA 7, paragraph, bullet, or table
+  format (English or Indonesian).
+- Works with Google Gemini, OpenAI, Groq, or OpenRouter.
+- **You supply your own API key at runtime.** It is used only for that session, is
+  never stored by the package, and nothing is sent anywhere until you enter a key and
+  ask a question. The application is fully usable without it.
 
 ---
 

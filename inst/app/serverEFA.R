@@ -1,42 +1,141 @@
-server_efa <- function(input, output, session) {
+server_efa <- function(input, output, session, ai_context, console_context) {
   library(psych)
   library(lavaan)
   
   # ==== LOAD DATA ====
-  data_user <- reactive({
+  raw_data_user <- reactive({
+    req(input$data_source)
     if (input$data_source == "bfi") return(psych::bfi %>% dplyr::select(A1:O5)%>% rownames_to_column("id_auto"))
     if (input$data_source == "HolzingerSwineford1939") return(lavaan::HolzingerSwineford1939%>% dplyr::select(x1:x9)%>% rownames_to_column("id_auto"))
     if (input$data_source == "upload") {
       req(input$datafile)
       ext <- tolower(tools::file_ext(input$datafile$name))
       showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
-      df <- switch(
-        ext,
-        "csv"  = data.table::fread(input$datafile$datapath,data.table = FALSE),
-        "xls"  = readxl::read_excel(input$datafile$datapath),
-        "xlsx" = readxl::read_excel(input$datafile$datapath),
-        "sav"  = haven::read_sav(input$datafile$datapath),
-        "rds"  = readRDS(input$datafile$datapath),
-        stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
-      )
+      if (ext == "rds") {
+        res <- readRDS(input$datafile$datapath)
+        if (is.list(res) && !is.data.frame(res) && identical(res$type, "projectLSA_workspace")) {
+          if (identical(res$module, "EFA")) {
+            # Restore Workspace State
+            efa_aggregations(res$efa_aggregations)
+            efa_result(res$efa_result)
+            df <- res$raw_data
+            showNotification("EFA Workspace restored successfully!", type = "message")
+          } else {
+            stop("Uploaded workspace belongs to a different module: ", res$module)
+          }
+        } else if (is.list(res) && "fa" %in% names(res) && inherits(res$fa, "fa")) {
+          efa_result(res)
+          vars <- rownames(res$fa$loadings)
+          df <- as.data.frame(matrix(NA, nrow=1, ncol=length(vars)))
+          colnames(df) <- vars
+          showModal(modalDialog("EFA Model uploaded successfully! Please navigate to the Summary or Plot tab.", easyClose = TRUE))
+        } else if (inherits(res, "fa")) {
+          efa_result(list(fa = res, cor_mat = NULL, fit_stats = NULL, n_obs = NULL))
+          vars <- rownames(res$loadings)
+          df <- as.data.frame(matrix(NA, nrow=1, ncol=length(vars)))
+          colnames(df) <- vars
+          showModal(modalDialog("EFA Model uploaded successfully! Please navigate to the Summary or Plot tab.", easyClose = TRUE))
+        } else {
+          df <- res
+        }
+      } else {
+        df <- switch(
+          ext,
+          "csv"  = data.table::fread(input$datafile$datapath, data.table = FALSE),
+          "xls"  = readxl::read_excel(input$datafile$datapath),
+          "xlsx" = readxl::read_excel(input$datafile$datapath),
+          "sav"  = haven::read_sav(input$datafile$datapath),
+          stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
+        )
+      }
       removeModal()
-      df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
-                          id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      
+      if (!"id_auto" %in% names(df)) {
+        df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
+                            id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      }
     }
     return(df)
+  })
+  
+  # Reactive value to store user-defined aggregations
+  efa_aggregations <- reactiveVal(list())
+  
+  # New data_user reactive that applies aggregations on top of raw_data_user
+  data_user <- reactive({
+    df <- raw_data_user()
+    req(df)
+    
+    aggs <- efa_aggregations()
+    if (length(aggs) > 0) {
+      for (agg in aggs) {
+        vars <- agg$vars
+        name <- agg$name
+        method <- agg$method
+        
+        valid_vars <- intersect(vars, names(df))
+        if (length(valid_vars) > 0) {
+          if (method == "mean") {
+            df[[name]] <- rowMeans(df[, valid_vars, drop = FALSE], na.rm = TRUE)
+          } else if (method == "sum") {
+            df[[name]] <- rowSums(df[, valid_vars, drop = FALSE], na.rm = TRUE)
+          }
+        }
+      }
+    }
+    return(df)
+  })
+  
+  # Handle aggregation button click
+  observeEvent(input$efa_btn_aggregate, {
+    req(input$efa_agg_vars, input$efa_agg_name)
+    
+    # Check if name is valid and doesn't exist already
+    new_name <- make.names(input$efa_agg_name)
+    
+    new_agg <- list(
+      vars = input$efa_agg_vars,
+      name = new_name,
+      method = input$efa_agg_method
+    )
+    
+    # Append to existing aggregations
+    current_aggs <- efa_aggregations()
+    current_aggs[[new_name]] <- new_agg
+    efa_aggregations(current_aggs)
+    
+    showNotification(paste("Aggregated variable", new_name, "created using", input$efa_agg_method, "method."), type = "message")
+    
+    # Clear inputs
+    updateTextInput(session, "efa_agg_name", value = "")
+    updateSelectizeInput(session, "efa_agg_vars", selected = "")
+  })
+  
+  # Handle reset aggregation button
+  observeEvent(input$efa_btn_reset_agg, {
+    efa_aggregations(list())
+    showNotification("All aggregations have been reset.", type = "warning")
+  })
+  
+  # Populate aggregation UI choices
+  observe({
+    req(raw_data_user())
+    # We populate with raw data columns + existing aggregated columns
+    df_names <- names(data_user())
+    updateSelectizeInput(session, "efa_agg_vars", choices = df_names)
   })
   
 
   # ==== Pilih ID ====
   output$id_select_ui_fa <- renderUI({
     req(data_user())
-    selectizeInput(
+    shinyWidgets::pickerInput(
       "id_lca",
       label = "Select ID Columns (Optional):",
       choices = names(data_user()),
       selected = names(data_user())[str_detect(names(data_user()), "id")],
       multiple = TRUE,
-      options = list(placeholder = 'Choose one or more ID columns')
+      options = list(`actions-box` = TRUE, `live-search` = TRUE, placeholder = 'Choose one or more ID columns')
     )
   })
   
@@ -48,12 +147,13 @@ server_efa <- function(input, output, session) {
     
     # Hilangkan kolom ID dari pilihan variabel
     available_vars <- setdiff(all_vars, id_cols)
-    selectInput(
+    shinyWidgets::pickerInput(
       "selected_vars",
       label = "Select Variables:",
       choices = available_vars,
       selected = available_vars,  # default pilih semua yang tersisa
-      multiple = TRUE
+      multiple = TRUE,
+      options = list(`actions-box` = TRUE, `live-search` = TRUE, `selected-text-format` = "count > 3")
     )
   })
 
@@ -79,6 +179,173 @@ server_efa <- function(input, output, session) {
     )
   }, server = FALSE)
   
+  # ====== Data Preview Visualizations ======
+  output$efa_summary_table <- renderUI({
+    vars_to_use <- input$selected_vars
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+    valid_vars <- intersect(vars_to_use, names(data_user()))
+    req(length(valid_vars) > 0)
+    
+    df <- data_user()[, valid_vars, drop = FALSE]
+    
+    summary_list <- lapply(names(df), function(v) {
+      x <- df[[v]]
+      x_na <- na.omit(x)
+      n <- length(x_na)
+      
+      if (is.numeric(x)) {
+        mean_val <- round(mean(x_na), 2)
+        sd_val <- round(sd(x_na), 2)
+        min_val <- round(min(x_na), 2)
+        max_val <- round(max(x_na), 2)
+        type <- "Scale"
+        
+        data.frame(
+          Variable = v,
+          Type = type,
+          N = n,
+          `Mean/Mode` = as.character(mean_val),
+          `SD/Count` = as.character(sd_val),
+          Min = as.character(min_val),
+          Max = as.character(max_val),
+          check.names = FALSE
+        )
+      } else {
+        tbl <- table(x_na)
+        if(length(tbl) > 0) {
+          mode_val <- names(tbl)[which.max(tbl)]
+          count_val <- max(tbl)
+        } else {
+          mode_val <- "-"
+          count_val <- "-"
+        }
+        type <- if (is.ordered(x)) "Ordinal" else "Nominal"
+        
+        data.frame(
+          Variable = v,
+          Type = type,
+          N = n,
+          `Mean/Mode` = as.character(mode_val),
+          `SD/Count` = as.character(count_val),
+          Min = "-",
+          Max = "-",
+          check.names = FALSE
+        )
+      }
+    })
+    
+    summary_df <- do.call(rbind, summary_list)
+    
+    html_out <- summary_df %>%
+      kable(format = "html", escape = FALSE, caption = "<b>Table 1</b><br><i>Descriptive Statistics</i>", align = "llccccc") %>%
+      kable_styling(bootstrap_options = "none", full_width = FALSE, position = "left") %>%
+      row_spec(0, bold = FALSE, extra_css = "border-top: 1.5px solid black; border-bottom: 1.5px solid black; font-family: 'Times New Roman', Times, serif; font-size: 11pt;") %>%
+      row_spec(nrow(summary_df), extra_css = "border-bottom: 1.5px solid black;") %>%
+      column_spec(1:ncol(summary_df), extra_css = "padding: 4px 12px; font-size: 11pt; line-height: 1; font-family: 'Times New Roman', Times, serif;")
+    
+    HTML(as.character(html_out))
+  })
+
+  output$efa_data_summary_plot <- renderPlot({
+    vars_to_use <- input$selected_vars
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+
+    valid_vars <- intersect(vars_to_use, names(data_user()))
+    if (length(valid_vars) == 0) {
+      return(NULL)
+    }
+
+    df <- data_user()[, valid_vars, drop = FALSE]
+
+    types <- sapply(df, function(x) class(x)[1])
+    type_df <- as.data.frame(table(types))
+    names(type_df) <- c("DataType", "Count")
+    
+    theme_choice <- input$efa_summary_theme
+    if (is.null(theme_choice)) theme_choice <- "default"
+    
+    bar_colors <- switch(theme_choice,
+      "pastel" = scale_fill_brewer(palette = "Pastel1"),
+      "blue"   = scale_fill_brewer(palette = "Blues"),
+      "dark"   = scale_fill_brewer(palette = "Dark2"),
+      scale_fill_brewer(palette = "Set2")
+    )
+
+    ggplot(type_df, aes(x = DataType, y = Count, fill = DataType)) +
+      geom_col(width = 0.5, show.legend = FALSE, alpha = 0.9, color = "transparent") +
+      geom_text(aes(label = Count), vjust = -0.5, fontface = "bold", color = "#495057") +
+      bar_colors +
+      theme_minimal(base_size = 14) +
+      theme(
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 14, color = "#343a40"),
+        axis.title.x = element_text(face = "bold", color = "#495057", margin = margin(t = 10)),
+        axis.title.y = element_text(face = "bold", color = "#495057", margin = margin(r = 10)),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1), # Prevent overlap
+        panel.grid.major.x = element_blank(),
+        plot.margin = margin(15, 15, 15, 15),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA)
+      ) +
+      labs(title = "Data Type Composition", x = "Data Type", y = "Number of Variables")
+  }, bg="transparent")
+
+  output$efa_data_heatmap <- renderPlot({
+    vars_to_use <- input$selected_vars
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+    if (is.null(vars_to_use) || length(vars_to_use) == 0) vars_to_use <- names(data_user())
+
+    valid_vars <- intersect(vars_to_use, names(data_user()))
+    if (length(valid_vars) == 0) {
+      return(NULL)
+    }
+
+    df <- data_user()[, valid_vars, drop = FALSE]
+
+    num_df <- df[, sapply(df, is.numeric), drop = FALSE]
+    if (ncol(num_df) < 2) {
+      plot.new()
+      title(main = "Not enough numeric variables for correlation heatmap", col.main = "#6c757d")
+      return(NULL)
+    }
+
+    cor_matrix <- cor(num_df, use = "pairwise.complete.obs")
+    cor_matrix[upper.tri(cor_matrix)] <- NA
+
+    cor_melted <- as.data.frame(as.table(cor_matrix))
+    cor_melted <- cor_melted[!is.na(cor_melted$Freq), ]
+    names(cor_melted) <- c("Var1", "Var2", "value")
+
+    theme_choice <- input$efa_summary_theme
+    if (is.null(theme_choice)) theme_choice <- "default"
+    
+    heatmap_colors <- switch(theme_choice,
+      "pastel" = scale_fill_gradient2(low = "#b3cde3", high = "#fbb4ae", mid = "white", midpoint = 0, limit = c(-1,1), name="Pearson\nCorrelation"),
+      "blue"   = scale_fill_gradient2(low = "#deebf7", high = "#3182bd", mid = "white", midpoint = 0, limit = c(-1,1), name="Pearson\nCorrelation"),
+      "dark"   = scale_fill_gradient2(low = "#1b9e77", high = "#d95f02", mid = "white", midpoint = 0, limit = c(-1,1), name="Pearson\nCorrelation"),
+      scale_fill_gradient2(low = "#4575b4", high = "#d73027", mid = "white", midpoint = 0, limit = c(-1,1), name="Pearson\nCorrelation")
+    )
+
+    ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
+      geom_tile(color = "white", size = 0.5) +
+      heatmap_colors +
+      theme_minimal(base_size = 12) +
+      theme(
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, color = "#495057"),
+        axis.text.y = element_text(color = "#495057"),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 14, color = "#343a40"),
+        plot.background = element_rect(fill = "transparent", color = NA)
+      ) +
+      coord_fixed() +
+      labs(title = "Correlation Heatmap (Numeric Variables)")
+  }, bg="transparent")
   
   # === Ketika user memilih CFA ===
   observeEvent(input$fa_type, {
@@ -117,8 +384,11 @@ server_efa <- function(input, output, session) {
   })
   
   # ==== EFA ====
-  efa_result <- eventReactive(c(input$run_efa, input$n_factors), {
+  efa_result <- reactiveVal(NULL)
+  
+  observeEvent(c(input$run_efa, input$n_factors), {
     req(data_user(), input$selected_vars)
+    req(input$run_efa > 0 || !is.null(efa_result())) # Only run if button clicked or already loaded
     
     withProgress(message = "Running Exploratory Factor Analysis (EFA)...", value = 0, {
       incProgress(0.1, detail = "Preparing data...")
@@ -174,9 +444,9 @@ server_efa <- function(input, output, session) {
         scores = as.data.frame(psych::factor.scores(df, fa_res, Phi = NULL,rho=NULL,missing=FALSE,impute="mean")$scores)
       )
       
-      efa_out
+      efa_result(efa_out)
     })
-  })
+  }, ignoreInit = TRUE)
 
   
   # ==== Pindah ke tab hasil EFA setelah dijalankan ====
@@ -492,5 +762,191 @@ server_efa <- function(input, output, session) {
       scores <- efa_result()$scores
       write.csv(round(as.data.frame(scores), 3), file, row.names = FALSE)
     }
+  )
+
+  # ==== 4. R Console Output & Model Export ====
+  observeEvent(efa_result(), {
+    req(efa_result())
+    out_res <- efa_result()
+    if (!is.null(out_res$fa)) {
+      out_text <- paste(capture.output(print(out_res$fa)), collapse = "\n")
+      console_context$text <- out_text
+    } else {
+      console_context$text <- "Error in EFA model computation."
+    }
+  })
+  
+  output$export_efa_rds <- downloadHandler(
+    filename = function() {
+      paste0("EFA_Workspace_", Sys.Date(), ".rds")
+    },
+    content = function(file) {
+      req(efa_result())
+      workspace <- list(
+        type = "projectLSA_workspace",
+        module = "EFA",
+        raw_data = raw_data_user(),
+        efa_result = efa_result(),
+        efa_aggregations = efa_aggregations()
+      )
+      saveRDS(workspace, file)
+    }
+  )
+
+  # ==== 5. Score New Data ====
+  output$download_efa_template <- downloadHandler(
+    filename = function() { "EFA_template.xlsx" },
+    content = function(file) {
+      req(efa_result())
+      items <- rownames(efa_result()$fa$loadings)
+      df <- data.frame(matrix(ncol = length(items), nrow = 0))
+      colnames(df) <- items
+      writexl::write_xlsx(df, file)
+    }
+  )
+
+  efa_newscores_reactive <- eventReactive(input$efa_score_newdata_btn, {
+    req(efa_result(), input$efa_newdata)
+    ext <- tools::file_ext(input$efa_newdata$name)
+    df <- switch(
+      ext,
+      "csv" = read.csv(input$efa_newdata$datapath),
+      "xlsx" = readxl::read_excel(input$efa_newdata$datapath),
+      "xls" = readxl::read_excel(input$efa_newdata$datapath),
+      stop("Invalid file format")
+    )
+    
+    # Apply user-defined calculated variables to the new data
+    aggs <- efa_aggregations()
+    if (length(aggs) > 0) {
+      for (agg in aggs) {
+        vars <- agg$vars
+        name <- agg$name
+        method <- agg$method
+
+        valid_vars <- intersect(vars, names(df))
+        if (length(valid_vars) > 0) {
+          if (method == "mean") {
+            df[[name]] <- rowMeans(df[, valid_vars, drop = FALSE], na.rm = TRUE)
+          } else if (method == "sum") {
+            df[[name]] <- rowSums(df[, valid_vars, drop = FALSE], na.rm = TRUE)
+          }
+        }
+      }
+    }
+    
+    # Calculate scores
+    fa_model <- efa_result()$fa
+    # Make sure we only use the columns matching the items in the model
+    items <- rownames(fa_model$loadings)
+    df_used <- df[, items, drop = FALSE]
+    
+    scores <- psych::factor.scores(df_used, fa_model, missing = FALSE, impute = "mean")$scores
+    
+    n_factors <- fa_model$factors
+    factor_names <- sapply(1:n_factors, function(i) {
+      input[[paste0("factor_name_", i)]] %||% paste0("Factor ", i)
+    })
+    
+    if (length(factor_names) == ncol(scores)) {
+      colnames(scores) <- factor_names
+    }
+    
+    as.data.frame(scores)
+  })
+
+  output$efa_newscores_table <- DT::renderDataTable({
+    req(efa_newscores_reactive())
+    datatable(round(efa_newscores_reactive(), 3), options = list(scrollX = TRUE))
+  })
+
+  output$download_efa_newscores <- downloadHandler(
+    filename = function() { paste0("EFA_newscores_", Sys.Date(), ".csv") },
+    content = function(file) {
+      write.csv(round(efa_newscores_reactive(), 3), file, row.names = FALSE)
+    }
+  )
+  # ==== AI Assistant ====
+  # Update global AI context whenever results change
+  observe({
+    res_text <- ""
+    if (!is.null(efa_result())) {
+      fit <- efa_result()
+      res_text <- paste(capture.output(print(fit)), collapse = "\n")
+    }
+    ai_context$results_text <- res_text
+    ai_context$module <- "Exploratory Factor Analysis (EFA)"
+  })
+
+  # Per-session directory, so concurrent users never share a report file
+  efa_report_res <- session_report_dir(session, "efa")
+  efa_report_path <- reactiveVal(NULL)
+  
+  # Renders the EFA report and returns the path of the generated HTML file
+  # (NULL on failure). Shared by the preview button and the download handler.
+  generate_efa_report <- function(progress_label = "Generating Report...") {
+    if (is.null(efa_result())) {
+      return(NULL)
+    }
+
+    report_path <- file.path(system.file("app", package = "projectLSA"), "efa_report.Rmd")
+    if (report_path == "" || !file.exists(report_path)) {
+      report_path <- "efa_report.Rmd"
+    }
+    
+    tempReport <- file.path(efa_report_res$path, "efa_report.Rmd")
+    file.copy(report_path, tempReport, overwrite = TRUE)
+    
+    out_html <- file.path(efa_report_res$path, "efa_report_out.html")
+    
+    showModal(modalDialog(progress_label, footer = NULL))
+    ok <- tryCatch({
+      rmarkdown::render(tempReport, output_file = out_html,
+        params = list(
+          efa_res = efa_result(),
+          console_out = console_context$text,
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
+        ),
+        envir = new.env(parent = globalenv())
+      )
+      efa_report_path(out_html)
+      TRUE
+    }, error = function(e) {
+      showNotification(paste("Error rendering report:", e$message), type = "error")
+      FALSE
+    }, finally = {
+      removeModal()
+    })
+
+    if (isTRUE(ok)) out_html else NULL
+  }
+
+  observeEvent(input$efa_generate_preview, {
+    req(efa_result())
+    generate_efa_report("Generating Report Preview...")
+  })
+
+  output$efa_report_preview_frame <- renderUI({
+    req(efa_report_path())
+    tags$iframe(
+      src = paste0(efa_report_res$prefix, "/efa_report_out.html?v=", as.integer(Sys.time())),
+      width = "100%", height = "800px", style = "border: none;"
+    )
+  })
+
+  output$download_report_efa <- downloadHandler(
+    filename = function() {
+      paste0("EFA_Report_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      req(efa_result())
+      path <- efa_report_path()
+      if (is.null(path) || !file.exists(path)) {
+        path <- generate_efa_report("Generating Report...")
+      }
+      req(path)
+      file.copy(path, file, overwrite = TRUE)
+    },
+    contentType = "text/html"
   )
 }

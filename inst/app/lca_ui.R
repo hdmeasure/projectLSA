@@ -26,7 +26,7 @@ lca_ui <- function(project) {
           ),
           conditionalPanel(
             condition = "input.data_source_lca == 'upload'",
-            fileInput("datafile_lca", "Upload Data (csv/xlsx)", accept = c(".csv", ".xlsx"))
+            fileInput("datafile_lca", "Upload Data/Workspace (csv/xlsx/sav/rds)", accept = c(".csv", ".xlsx", ".sav", ".rds"))
           ),
           uiOutput("id_select_ui_lca"),
           uiOutput("var_select_ui_lca"),
@@ -36,10 +36,13 @@ lca_ui <- function(project) {
           
           br(),
           
-          actionButton("run_lca", 
-                       label = tagList(icon("play"), "Run LCA"), 
+          actionButton("run_lca",
+                       label = tagList(icon("play"), "Run LCA"),
                        class = "btn btn-success btn-block",
-                       style = "width: 100% !important;")
+                       style = "width: 100% !important; margin-bottom: 10px;"),
+          downloadButton("export_lca_rds", "Save Project (.rds)",
+                         class = "btn btn-primary",
+                         style = "width: 100% !important;")
         ),
         mainPanel(
           width = 9,
@@ -180,8 +183,26 @@ lca_ui <- function(project) {
              br(),
              br(),
              br()
-      ) 
+      )
     ),
+
+    # --- Report Preview ----
+    tabPanel(
+      title = tagList(icon("file-alt"), "Report Preview"),
+      column(
+        12,
+        br(),
+        div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
+            actionButton("lca_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
+            downloadButton("download_report_lca", "Download HTML Report", class = "btn btn-primary")
+        ),
+        div(
+          style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
+          uiOutput("lca_report_preview_frame")
+        )
+      )
+    ),
+
     # --- TAB 5: About ----
     tabPanel(
       title = tagList(icon("info-circle"), "About"),

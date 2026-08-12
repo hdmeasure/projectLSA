@@ -1,0 +1,163 @@
+---
+title: "Latent Class Analysis (LCA) Report"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  fit_compare: NA
+  best_k: NA
+  model_best: NA
+  class_plot: NA
+  summary_tbl: NA
+  selected_vars: NA
+  console_out: NA
+  ai_summary: ""
+---
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  body, p, table, td, th {
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6 !important;
+    font-size: 14px;
+    color: #333333;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.2;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+  h1 { font-size: 28px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+  h2 { font-size: 22px; color: #2980b9; }
+  h3 { font-size: 18px; color: #34495e; }
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+```
+
+## Analysis Overview
+
+```{r overview, results='asis'}
+vars <- params$selected_vars
+if (!is.null(vars) && length(vars) > 0) {
+  cat("**Indicators used:** ", paste(vars, collapse = ", "), "\n\n", sep = "")
+}
+if (!is.null(params$best_k) && !is.na(params$best_k)) {
+  cat("**Selected solution:** ", params$best_k, " classes\n\n", sep = "")
+}
+```
+
+## Model Fit Comparison
+
+Class enumeration should be based jointly on the information criteria (lower
+AIC/BIC is better), entropy and average posterior class probabilities
+(values of .80 or above indicate adequate classification), the smallest class
+proportion, and the substantive interpretability of the classes
+(Nylund et al., 2007; Collins & Lanza, 2010).
+
+```{r fit-compare}
+fc <- params$fit_compare
+if (!is.null(fc) && nrow(fc) > 0) {
+  fc_disp <- fc
+  num_cols <- vapply(fc_disp, is.numeric, logical(1))
+  fc_disp[num_cols] <- lapply(fc_disp[num_cols], function(x) round(x, 3))
+  kable(fc_disp, format = "html", row.names = FALSE) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+} else {
+  cat("No model comparison results available.")
+}
+```
+
+## Selected Model
+
+```{r best-model, comment=NA}
+mk <- params$model_best
+if (!is.null(mk)) {
+  cat("Class prevalence (mixing proportions):\n\n")
+  print(round(mk$P, 4))
+  cat("\n\nItem-response probabilities:\n\n")
+  print(lapply(mk$probs, function(x) round(x, 4)))
+  cat("\n\nModel fit:\n\n")
+  cat("Log-likelihood: ", round(mk$llik, 3), "\n", sep = "")
+  cat("AIC: ", round(mk$aic, 3), "\n", sep = "")
+  cat("BIC: ", round(mk$bic, 3), "\n", sep = "")
+} else {
+  cat("No estimated model available.")
+}
+```
+
+## Class Profile Plot
+
+```{r class-plot, fig.width=9, fig.height=5.5}
+if (!is.null(params$class_plot)) {
+  print(params$class_plot)
+}
+```
+
+## Estimated Class Parameters
+
+`summary_data_lca()` returns two tables: class sizes and item-response
+probabilities. Both are printed below.
+
+```{r summary-table, results='asis'}
+st <- params$summary_tbl
+
+show_tbl <- function(x, caption) {
+  if (is.null(x)) return(invisible(NULL))
+  x <- as.data.frame(x)
+  if (nrow(x) == 0) return(invisible(NULL))
+  num_cols <- vapply(x, is.numeric, logical(1))
+  x[num_cols] <- lapply(x[num_cols], function(v) round(v, 3))
+  print(
+    kable(x, format = "html", row.names = FALSE, caption = caption) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+  )
+  cat("\n\n")
+}
+
+if (is.list(st) && !is.data.frame(st)) {
+  show_tbl(st$class_size, "Class size and prevalence")
+  show_tbl(st$probability, "Item-response probabilities by class")
+} else if (!is.null(st)) {
+  show_tbl(st, NULL)
+} else {
+  cat("No class summary available.")
+}
+```
+
+```{r ai-summary, results='asis'}
+if (!is.null(params$ai_summary) && params$ai_summary != "") {
+  cat("## AI Interpretive Summary\n\n")
+  cat("<div style='background-color: #f0f7fb; border-left: 4px solid #3498db; padding: 15px; border-radius: 4px; margin-bottom: 25px;'>\n")
+  cat(params$ai_summary)
+  cat("\n</div>\n\n")
+}
+```
+
+## R Console Output
+
+<div style="font-family: Consolas, 'Courier New', monospace; font-size: 10px; white-space: pre-wrap; background-color: #f8f9fa; padding: 10px; border: 1px solid #ccc; border-radius: 4px; line-height: 1.2;">
+`r params$console_out`
+</div>
+
+## References
+
+* Collins, L. M., & Lanza, S. T. (2010). *Latent class and latent transition analysis: With applications in the social, behavioral, and health sciences*. Wiley.
+* Djidu, H., Retnawati, H., Hadi, S., & Haryanto. (2026). projectLSA: A Shiny application for integrated latent structure analysis. *Applied Psychological Measurement*. https://doi.org/10.1177/01466216261446305
+* Djidu, H., Retnawati, H., Hadi, S., & Haryanto. (2026). *projectLSA: R Shiny application for latent structure analysis with a graphical user interface*. https://doi.org/10.32614/CRAN.package.projectLSA. R package.
+* Linzer, D. A., & Lewis, J. B. (2011). poLCA: An R package for polytomous variable latent class analysis. *Journal of Statistical Software*, 42(10), 1-29.
+* Nylund, K. L., Asparouhov, T., & Muthen, B. O. (2007). Deciding on the number of classes in latent class analysis and growth mixture modeling: A Monte Carlo simulation study. *Structural Equation Modeling*, 14(4), 535-569.
+
+***
+*Generated by projectLSA*

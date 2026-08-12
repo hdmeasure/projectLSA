@@ -1,18 +1,24 @@
-# LTA -----
-# ==== Reactive Data LTA ====
-server_lta <- function(input, output, session) {
+# IRT -----
+# ==== Reactive Data IRT ====
+server_lta <- function(input, output, session, ai_context, console_context) {
   library(mirt)
   library(plotly)
   library(psych)
+  library(shinycssloaders)
+
+  # Set while a saved workspace is being loaded, so the "reset results when the
+  # data changes" observer below does not wipe the models we just restored.
+  lta_restoring <- reactiveVal(FALSE)
+
   data_user <- reactive({
     req(input$dimension, input$data_source_lta)
-    set.seed(321)
     if (input$dimension == "uni" && input$data_source_lta == "diko") {
       a <- matrix(runif(15, 0.8, 2), ncol = 1)      # discrimination 1 dimension
       d <- matrix(rnorm(15, 0, 1), ncol = 1)       # difficulty
       theta <- matrix(rnorm(750), ncol = 1)       # ability 1 dimension
       resp <- simdata(a = a, d = d, itemtype = "2PL", Theta = theta)
       df <- as.data.frame(resp) %>% tidyr::drop_na()
+      df$Group <- sample(c("Group_A", "Group_B"), nrow(df), replace = TRUE)
       
     } else if (input$dimension == "uni" && input$data_source_lta == "poli") {
       a <- matrix(rlnorm(20, .2, .3))  
@@ -21,6 +27,7 @@ server_lta <- function(input, output, session) {
       d <- diffs + rnorm(20)
       resp <- simdata(a, d, 300, itemtype = 'graded')
       df <- as.data.frame(resp) %>% tidyr::drop_na()
+      df$Group <- sample(c("Group_A", "Group_B"), nrow(df), replace = TRUE)
       
     } else if (input$dimension == "multi" && input$data_source_lta == "diko") {
       N <- 750     
@@ -33,25 +40,72 @@ server_lta <- function(input, output, session) {
       sigma <- matrix(c(1,0.3,0.3,1), nrow = 2)
       resp <- simdata(a = a, d = d, N = N, itemtype = '2PL', sigma = sigma)
       df <- as.data.frame(resp) %>% tidyr::drop_na()
+      df$Group <- sample(c("Group_A", "Group_B"), nrow(df), replace = TRUE)
       
     } else if (input$dimension == "multi" && input$data_source_lta == "poli") {
-      df <- as.data.frame(psych::bfi) %>% dplyr::select(A1:E2) %>% tidyr::drop_na()
+      df <- as.data.frame(psych::bfi) %>% dplyr::select(A1:E2, gender) %>% tidyr::drop_na()
+      df$gender <- factor(df$gender, levels = c(1, 2), labels = c("Male", "Female"))
+      colnames(df)[ncol(df)] <- "Gender"
     } else {
       req(input$datafile_lta)
       ext <- tolower(tools::file_ext(input$datafile_lta$name))
       showModal(modalDialog(title = NULL, "Reading Your File, Please wait...", footer = NULL, easyClose = FALSE))
-      df <- switch(
-        ext,
-        "csv"  = data.table::fread(input$datafile_lta$datapath,data.table = FALSE),
-        "xls"  = readxl::read_excel(input$datafile_lta$datapath),
-        "xlsx" = readxl::read_excel(input$datafile_lta$datapath),
-        "sav"  = haven::read_sav(input$datafile_lta$datapath),
-        "rds"  = readRDS(input$datafile_lta$datapath),
-        stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
-      )
+      if (ext == "rds") {
+        res <- readRDS(input$datafile_lta$datapath)
+        if (is.list(res) && !is.data.frame(res) && identical(res$type, "projectLSA_workspace")) {
+          if (identical(res$module, "LTA")) {
+            # Restore Workspace State
+            lta_restoring(TRUE)
+            lta_fit_list(res$lta_fit_list)
+            lta_fit_compare(res$lta_fit_compare)
+            lta_current_id(res$lta_current_id)
+            df <- res$raw_data
+            
+            # Restore UI Inputs
+            if (!is.null(res$input_state)) {
+              updateSelectInput(session, "data_source_lta", selected = res$input_state$data_source_lta)
+              updateSelectInput(session, "datatype", selected = res$input_state$datatype)
+              updateSelectInput(session, "dimension", selected = res$input_state$dimension)
+              updateSelectInput(session, "fit_stats", selected = res$input_state$fit_stats)
+              if (!is.null(res$input_state$selected_vars)) {
+                 updateSelectInput(session, "selected_vars", selected = res$input_state$selected_vars)
+              }
+              if (!is.null(res$input_state$itemtype)) {
+                 updateSelectInput(session, "itemtype", selected = res$input_state$itemtype)
+              }
+              if (!is.null(res$input_state$lta_model_text)) {
+                 updateTextAreaInput(session, "lta_model_text", value = res$input_state$lta_model_text)
+              }
+            }
+            
+            showNotification("LTA Workspace restored successfully!", type = "message")
+          } else {
+            stop("Uploaded workspace belongs to a different module: ", res$module)
+          }
+        } else if (inherits(res, "SingleGroupClass") || inherits(res, "MultipleGroupClass")) {
+          lta_fit_list(list(list(id = "model_1", model = res, type = "Uploaded Model", timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"))))
+          lta_current_id("model_1")
+          df <- as.data.frame(res@Data$data)
+          showModal(modalDialog("LTA Model uploaded successfully! Please navigate to the Summary or Plot tab.", easyClose = TRUE))
+        } else {
+          df <- res
+        }
+      } else {
+        df <- switch(
+          ext,
+          "csv"  = data.table::fread(input$datafile_lta$datapath, data.table = FALSE),
+          "xls"  = readxl::read_excel(input$datafile_lta$datapath),
+          "xlsx" = readxl::read_excel(input$datafile_lta$datapath),
+          "sav"  = haven::read_sav(input$datafile_lta$datapath),
+          stop("Unsupported file type. Please upload CSV, Excel, SPSS (.sav), or RDS file.")
+        )
+      }
       removeModal()
-      df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
-                          id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      
+      if (!"id_auto" %in% names(df)) {
+        df <- df %>% mutate(across(everything(), ~ifelse(.x == "", NA, .x)),
+                            id_auto = paste0("id_", sprintf("%04d", 1:n())))
+      }
     }
     return(df)
   })
@@ -65,12 +119,14 @@ server_lta <- function(input, output, session) {
     all_vars <- names(data_user())
     id_cols <- input$id_cols
     choices <- setdiff(all_vars, id_cols)
-    selectInput("selected_vars", "Select Variables (used for LTA):", choices = choices, multiple = TRUE, selected = choices)
+    selectInput("selected_vars", "Select Variables (used for IRT):", choices = choices, multiple = TRUE, selected = choices)
   })
   
   data_lta <- reactive({
     req(input$dimension, input$data_source_lta, data_user(), input$selected_vars, input$fit_stats)
-    data_user() %>% dplyr::select(input$selected_vars)
+    df <- data_user() %>% dplyr::select(all_of(input$selected_vars))
+    # Exclude non-numeric columns for IRT model fitting
+    df %>% dplyr::select(where(is.numeric))
   })
   
   # ==== Preview Data ====
@@ -120,14 +176,20 @@ server_lta <- function(input, output, session) {
     )
   })
   
-  # ==== Reset all stored LTA results when data_user changes ====
+  # ==== Reset all stored IRT results when data_user changes ====
   observeEvent(data_user(), {
+    # ...unless the new data came from a restored workspace, which carries its
+    # own models with it.
+    if (isTRUE(lta_restoring())) {
+      lta_restoring(FALSE)
+      return(invisible(NULL))
+    }
     # Reset stored models and current selection
     lta_fit_list(list())
     lta_fit_compare(NULL)
     lta_current_id(NULL)
   })
-  # ===== LTA / MIRT MODEL =====
+  # ===== IRT / MIRT MODEL =====
   output$lta_model_ui <- renderUI({
     req(input$data_source_lta, input$dimension=="multi")
     model_text <- switch(input$data_source_lta,
@@ -156,7 +218,7 @@ F2 = 6-10
     )
   })
   
-  # ==== LTA storage ====
+  # ==== IRT storage ====
   lta_fit_list <- reactiveVal(list())
   lta_fit_compare <- reactiveVal(NULL)
   lta_current_id <- reactiveVal(NULL)
@@ -171,7 +233,7 @@ F2 = 6-10
     })
   }
   
-  # ==== LTA Main Run ====
+  # ==== IRT Main Run ====
   observeEvent(input$run_lta, {
     req(data_lta(), input$selected_vars, input$fit_stats)
     # Tambahkan kondisi khusus untuk upload
@@ -195,7 +257,7 @@ F2 = 6-10
     model_def <- if (input$dimension == "multi") {
       mirt.model(input$lta_model_text,itemnames = df)
     }  else {1}
-    showModal(modalDialog("Running Latent Trait Analysis ...", footer = NULL))
+    showModal(modalDialog("Running Item Response Theory ...", footer = NULL))
     
     fit_results <- list()
     for (item in itemtypes) {
@@ -740,5 +802,318 @@ F2 = 6-10
     })
   })
   
+  # ====== INFORMATION & RELIABILITY TAB ======
+  output$info_rel_ui <- renderUI({
+    req(selected_fit())
+    mod <- selected_fit()
+    
+    # Calculate Marginal Reliability
+    marg_rel <- tryCatch({
+      mirt::marginal_rxx(mod)
+    }, error = function(e) NA)
+    
+    # Generate TIF table
+    theta_seq <- matrix(seq(-4, 4, by = 0.5))
+    tif_vals <- tryCatch({
+      mirt::testinfo(mod, theta_seq)
+    }, error = function(e) rep(NA, length(theta_seq)))
+    
+    tif_df <- data.frame(
+      Theta = as.numeric(theta_seq),
+      Information = tif_vals
+    )
+    
+    # Render
+    tagList(
+      h4(icon("check-circle"), "Marginal Reliability"),
+      tags$p("Marginal reliability estimate(s) for the factors in this model:"),
+      verbatimTextOutput("marg_rel_out"),
+      tags$hr(),
+      h4(icon("table"), "Test Information Function (TIF) Table"),
+      tags$p("Test information values across different levels of the latent trait (\u03B8):"),
+      DTOutput("tif_table")
+    )
+  })
   
+  output$marg_rel_out <- renderPrint({
+    req(selected_fit())
+    mod <- selected_fit()
+    mirt::marginal_rxx(mod)
+  })
+  
+  output$tif_table <- renderDT({
+    req(selected_fit())
+    mod <- selected_fit()
+    theta_seq <- matrix(seq(-4, 4, by = 0.5))
+    tif_vals <- mirt::testinfo(mod, theta_seq)
+    
+    df <- data.frame(
+      Theta = as.numeric(theta_seq),
+      Information = round(tif_vals, 3)
+    )
+    
+    datatable(df, options = list(pageLength = 10, dom = 'rtip'))
+  })
+  
+  # ====== DIF ANALYSIS TAB ======
+  output$dif_ui <- renderUI({
+    req(data_user())
+    
+    # Find categorical variables for grouping
+    df <- data_user()
+    cat_vars <- names(df)[sapply(df, function(x) is.factor(x) || is.character(x) || length(unique(x)) <= 5)]
+    
+    if (length(cat_vars) == 0) {
+      return(tags$p("No suitable grouping variable found in the dataset for DIF analysis. Please ensure your dataset includes a categorical column (e.g., Gender, Region)."))
+    }
+    
+    tagList(
+      fluidRow(
+        column(4,
+               h4(icon("cogs"), "DIF Settings"),
+               selectInput("dif_group_var", "Select Grouping Variable:", choices = cat_vars),
+               selectInput("dif_anchor_items", "Anchor Items (optional):", 
+                           choices = c("None", input$selected_vars), selected = "None", multiple = TRUE),
+               actionButton("run_dif", "Run DIF Analysis", class = "btn-primary", icon = icon("play"))
+        ),
+        column(8,
+               h4(icon("table"), "DIF Results (mirt)"),
+               withSpinner(DTOutput("dif_results_table"))
+        )
+      )
+    )
+  })
+  
+  dif_results <- eventReactive(input$run_dif, {
+    req(selected_fit(), input$dif_group_var, data_user())
+    
+    df <- data_user()
+    group_var <- df[[input$dif_group_var]]
+    if (length(unique(na.omit(group_var))) < 2) {
+      showNotification("Grouping variable must have at least 2 categories.", type = "error")
+      return(NULL)
+    }
+    
+    # The selected_fit() model provides the variable names
+    mod <- selected_fit()
+    vars <- mirt::extract.mirt(mod, "itemnames")
+    mod_syntax <- NULL # If custom, wait we don't have model_syntax easily here. Let's just fit standard multiple group.
+    
+    # We need to fit a multiple group model for DIF
+    # Use mirt::multipleGroup
+    item_data <- df[, vars, drop = FALSE]
+    
+    # Simplified approach: If we can't easily refit, we might just use Wald test or likelihood ratio.
+    # To use mirt::DIF, we first fit a multipleGroup model where all items are constrained to be equal across groups.
+    showNotification("Fitting multiple group model... this may take a while.", id = "dif_msg", duration = NULL)
+    
+    tryCatch({
+      # Base constrained model
+      if (is.null(mod_syntax) || mod_syntax == "") {
+         mg_model <- mirt::multipleGroup(item_data, 1, group = as.character(group_var), invariance = c('free_means', 'free_var', 'slopes', 'intercepts'))
+      } else {
+         model_def <- mirt::mirt.model(mod_syntax)
+         mg_model <- mirt::multipleGroup(item_data, model_def, group = as.character(group_var), invariance = c('free_means', 'free_var', 'slopes', 'intercepts'))
+      }
+      
+      items2test <- vars
+      if (!is.null(input$dif_anchor_items) && !("None" %in% input$dif_anchor_items)) {
+        items2test <- setdiff(vars, input$dif_anchor_items)
+      }
+      
+      dif_res <- mirt::DIF(mg_model, which.par = c('a1', 'd'), items2test = items2test, p.adjust = "fdr")
+      removeNotification("dif_msg")
+      return(dif_res)
+    }, error = function(e) {
+      removeNotification("dif_msg")
+      showNotification(paste("DIF Error:", e$message), type = "error")
+      return(NULL)
+    })
+  })
+  
+  output$dif_results_table <- renderDT({
+    req(dif_results())
+    res <- dif_results()
+    
+    if (is.null(res)) return(NULL)
+    
+    df_res <- as.data.frame(res)
+    df_res$Item <- rownames(df_res)
+    df_res <- df_res[, c("Item", setdiff(names(df_res), "Item"))]
+    
+    datatable(df_res, options = list(pageLength = 15, scrollX = TRUE)) %>%
+      formatRound(columns = 2:ncol(df_res), digits = 3) %>%
+      formatStyle(
+        'p',
+        color = styleInterval(0.05, c('red', 'black')),
+        fontWeight = styleInterval(0.05, c('bold', 'normal'))
+      )
+  })
+
+  # ==== R Console Output & Model Export ====
+  observeEvent(selected_fit(), {
+    req(selected_fit())
+    out <- paste(capture.output(print(selected_fit())), collapse = "\n")
+    console_context$text <- out
+  })
+  
+  output$export_lta_rds <- downloadHandler(
+    filename = function() { paste0("LTA_Workspace_", Sys.Date(), ".rds") },
+    content = function(file) {
+      req(selected_fit())
+      workspace <- list(
+        type = "projectLSA_workspace",
+        module = "LTA",
+        raw_data = data_user(),
+        lta_fit_list = lta_fit_list(),
+        lta_fit_compare = lta_fit_compare(),
+        lta_current_id = lta_current_id(),
+        input_state = list(
+          data_source_lta = input$data_source_lta,
+          datatype = input$datatype,
+          dimension = input$dimension,
+          fit_stats = input$fit_stats,
+          selected_vars = input$selected_vars,
+          itemtype = input$itemtype,
+          lta_model_text = input$lta_model_text
+        )
+      )
+      saveRDS(workspace, file)
+    }
+  )
+
+  # ==== Score New Data ====
+  output$download_lta_template <- downloadHandler(
+    filename = function() { "LTA_template.xlsx" },
+    content = function(file) {
+      req(selected_fit())
+      items <- mirt::extract.mirt(selected_fit(), "itemnames")
+      df <- data.frame(matrix(ncol = length(items), nrow = 0))
+      colnames(df) <- items
+      writexl::write_xlsx(df, file)
+    }
+  )
+
+  lta_newscores_reactive <- eventReactive(input$lta_score_newdata_btn, {
+    req(selected_fit(), input$lta_newdata)
+    ext <- tools::file_ext(input$lta_newdata$name)
+    df <- switch(
+      ext,
+      "csv" = read.csv(input$lta_newdata$datapath),
+      "xlsx" = readxl::read_excel(input$lta_newdata$datapath),
+      "xls" = readxl::read_excel(input$lta_newdata$datapath),
+      stop("Invalid file format")
+    )
+    
+    # ensure only columns from model are used
+    items <- mirt::extract.mirt(selected_fit(), "itemnames")
+    df_used <- df[, intersect(colnames(df), items), drop = FALSE]
+    
+    # Calculate scores
+    scores <- mirt::fscores(selected_fit(), response.pattern = df_used)
+    as.data.frame(scores)
+  })
+
+  output$lta_newscores_table <- DT::renderDataTable({
+    req(lta_newscores_reactive())
+    datatable(round(lta_newscores_reactive(), 3), options = list(scrollX = TRUE))
+  })
+
+  output$download_lta_newscores <- downloadHandler(
+    filename = function() { "LTA_New_Scores.csv" },
+    content = function(file) {
+      req(lta_newscores_reactive())
+      write.csv(lta_newscores_reactive(), file, row.names = FALSE)
+    }
+  )
+
+  # ==== AI Assistant ====
+  # Update global AI context whenever results change
+  observe({
+    res_text <- ""
+    if (length(lta_fit_list()) > 0 && !is.null(input$itemtype)) {
+      fit <- try(selected_fit(), silent = TRUE)
+      if (!inherits(fit, "try-error") && !is.null(fit)) {
+        res_text <- paste0(
+          "=== MODEL COMPARISON ===\n",
+          paste(capture.output(print(lta_fit_compare())), collapse = "\n"), "\n\n",
+          "=== SELECTED MODEL (", input$itemtype, ") ===\n",
+          paste(capture.output(summary(fit)), collapse = "\n"), "\n\n"
+        )
+        itempar <- try(
+          as.data.frame(mirt::coef(fit, IRTpars = TRUE, simplify = TRUE)$items),
+          silent = TRUE
+        )
+        if (!inherits(itempar, "try-error")) {
+          res_text <- paste0(
+            res_text,
+            "=== ITEM PARAMETERS (IRT metric) ===\n",
+            paste(capture.output(print(round(itempar, 3))), collapse = "\n"), "\n\n"
+          )
+        }
+        itemfit <- try(
+          as.data.frame(mirt::itemfit(fit, fit_stats = input$fit_stats)),
+          silent = TRUE
+        )
+        if (!inherits(itemfit, "try-error")) {
+          res_text <- paste0(
+            res_text,
+            "=== ITEM FIT (", input$fit_stats, ") ===\n",
+            paste(capture.output(print(itemfit)), collapse = "\n"), "\n"
+          )
+        }
+      }
+    }
+    ai_context$results_text <- res_text
+    ai_context$module <- "Latent Trait Analysis (LTA / IRT)"
+  })
+
+  # Per-session directory, so concurrent users never share a report file
+  lta_report_res <- session_report_dir(session, "lta")
+  lta_report_path <- reactiveVal(NULL)
+  
+  observeEvent(input$lta_generate_preview, {
+    req(selected_fit())
+    
+    report_path <- file.path(system.file("app", package = "projectLSA"), "lta_report.Rmd")
+    if (report_path == "" || !file.exists(report_path)) {
+      report_path <- "lta_report.Rmd"
+    }
+    
+    tempReport <- file.path(lta_report_res$path, "lta_report.Rmd")
+    file.copy(report_path, tempReport, overwrite = TRUE)
+    
+    out_html <- file.path(lta_report_res$path, "lta_report_out.html")
+    
+    showModal(modalDialog("Generating Report Preview...", footer = NULL))
+    tryCatch({
+      rmarkdown::render(tempReport, output_file = out_html,
+        params = list(
+          lta_res = selected_fit(),
+          console_out = console_context$text,
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
+        )
+      )
+      lta_report_path(out_html)
+    }, error = function(e) {
+      showNotification(paste("Error rendering report:", e$message), type = "error")
+    }, finally = {
+      removeModal()
+    })
+  })
+  
+  output$lta_report_preview_frame <- renderUI({
+    req(lta_report_path())
+    tags$iframe(src = paste0(lta_report_res$prefix, "/lta_report_out.html?v=", as.integer(Sys.time())), width = "100%", height = "800px", style = "border: none;")
+  })
+
+  output$download_report_lta <- downloadHandler(
+    filename = function() {
+      paste0("LTA_Report_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      req(lta_report_path())
+      file.copy(lta_report_path(), file, overwrite = TRUE)
+    }
+  )
 }

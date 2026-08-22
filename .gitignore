@@ -15,3 +15,7 @@ README.knit.md
 README.html
 Rplots.pdf
 test_*
+rsconnect
+*.aux
+*.log
+*.out

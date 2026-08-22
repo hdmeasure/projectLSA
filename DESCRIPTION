@@ -73,7 +73,6 @@ Imports:
     tibble,
     tidyr,
     tidyLPA,
-    tidyverse,
     viridisLite,
     writexl
 Suggests:
@@ -81,7 +80,6 @@ Suggests:
     pkgdown,
     semTools,
     testthat (>= 3.0.0)
-LazyData: false
 Roxygen: list(markdown = TRUE)
 VignetteBuilder: knitr
 URL: https://github.com/hdmeasure/projectLSA

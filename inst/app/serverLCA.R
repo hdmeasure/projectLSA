@@ -1,7 +1,11 @@
 # ==== Reactive Data LCA ====
 server_lca <- function(input, output, session, ai_context, console_context) {
   library(poLCA)
-  library(tidyverse)
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(purrr)
+  library(tibble)
   library(ggiraph)
   library(data.table)
   library(glca)

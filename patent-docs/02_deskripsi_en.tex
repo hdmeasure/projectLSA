@@ -1,0 +1,211 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[top=2.0cm, left=2.5cm, bottom=3.0cm, right=3.0cm]{geometry}
+\usepackage{times}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+% DJKI formatting: no space between paragraphs, indent 5 characters
+\setlength{\parindent}{3em}
+\setlength{\parskip}{0pt}
+\singlespacing
+
+% Section formatting
+\titleformat{\section}{\normalfont\bfseries\large}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\bfseries\normalsize}{\thesubsection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+\begin{document}
+
+\begin{center}
+\textbf{\large DESCRIPTION}\\[12pt]
+\textbf{\large Title of the Invention:}\\[6pt]
+\textbf{projectLSA: Shiny Application for Latent Structure Analysis\\with a Graphical User Interface}
+\end{center}
+
+\vspace{12pt}
+
+\section{Technical Field of the Invention}
+
+The present invention relates to the field of statistical computing software, specifically to an integrated computer-implemented system and method for performing latent structure analysis through an interactive graphical user interface. The invention provides a unified platform that combines multiple latent variable modeling techniques, including Latent Profile Analysis (LPA), Latent Class Analysis (LCA), Item Response Theory (IRT)-based analysis, Exploratory Factor Analysis (EFA), and Confirmatory Factor Analysis (CFA)/Structural Equation Modeling (SEM), within a single web-based application built on the R programming language and the Shiny framework.
+
+\section{Background of the Invention}
+
+Latent structure analysis encompasses a family of statistical methods used to model unobserved (latent) variables from observed data. These methods are fundamental in psychological measurement, educational assessment, social science research, and various other disciplines where researchers seek to identify hidden patterns, classify individuals into homogeneous subgroups, or evaluate the quality of measurement instruments.
+
+The principal methods of latent structure analysis include: (a) Latent Profile Analysis (LPA), which identifies homogeneous subgroups of individuals based on continuous indicator variables; (b) Latent Class Analysis (LCA), which identifies subgroups based on categorical indicator variables; (c) Item Response Theory (IRT), which models the probabilistic relationship between latent traits and item responses; (d) Exploratory Factor Analysis (EFA), which identifies underlying factor structures from observed correlations; and (e) Confirmatory Factor Analysis (CFA), which tests hypothesized measurement models against observed data.
+
+Despite the widespread use of these methods, their practical implementation remains technically challenging for several reasons. First, each method typically requires a separate specialized software package with its own syntax, data structures, and output formats. For instance, LPA is commonly conducted using the tidyLPA package, LCA using poLCA or glca, IRT using mirt, EFA using psych, and CFA using lavaan. Transitioning between these packages demands substantial reconfiguration of analytical workflows, increases cognitive load, and can reduce reproducibility.
+
+Second, most of these tools require researchers to write programming code, which creates a significant barrier for applied researchers, students, and practitioners who possess substantive expertise but limited programming skills. While some graphical user interface (GUI)-based tools exist, they typically address only a single analytical method and lack integration across multiple latent structure analysis techniques.
+
+Third, the process of model comparison and selection is inherently iterative and complex. In mixture modeling, selecting the optimal number of classes or profiles involves comparing multiple models using information criteria, entropy values, and likelihood-based tests. In CFA, model refinement requires examining modification indices, re-specifying models, and comparing fit indices across successive modifications. Existing tools do not provide a unified framework for managing this iterative process across different analytical methods.
+
+There is therefore a need for an integrated software system that: (a) combines multiple latent structure analysis methods within a single platform; (b) provides an interactive graphical user interface that eliminates the need for code writing; (c) supports systematic model comparison using standardized fit indices and diagnostic criteria; (d) enables interactive visualization of results; and (e) produces exportable outputs suitable for academic reporting and publication.
+
+\section{Summary of the Invention}
+
+The present invention, designated \textit{projectLSA}, is a computer-implemented system for integrated latent structure analysis that addresses the limitations identified in the background. The system is implemented as a web-based application built on the R programming language and the Shiny framework, providing an interactive graphical user interface through which users can conduct multiple forms of latent structure analysis without writing code.
+
+The system comprises five principal analytical modules: (1) a Latent Profile Analysis module that supports automatic estimation of multiple mixture models with varying numbers of profiles and model specifications; (2) a Latent Class Analysis module that supports both standard and multilevel latent class models with categorical indicators; (3) an Item Response Theory module that supports dichotomous and polytomous item response models including Rasch, 2PL, 3PL, GRM, GPCM, and multidimensional models; (4) an Exploratory Factor Analysis module that provides automated diagnostic testing, parallel analysis, and factor extraction with multiple rotation methods; and (5) a Confirmatory Factor Analysis and Structural Equation Modeling module that supports model specification through a syntax editor, iterative model refinement, and customizable path diagram visualization.
+
+Each module is integrated with a unified data input system that accepts multiple file formats (CSV, Excel, SPSS, Stata), a standardized model comparison framework that enables side-by-side evaluation of competing models using established fit indices, an interactive visualization system that produces publication-quality graphics, and an automated reporting system that generates formatted HTML documents suitable for academic publication.
+
+The system is freely available through the Comprehensive R Archive Network (CRAN) and can be deployed locally within the R environment or hosted on a Shiny server for institutional use.
+
+\section{Detailed Description of the Invention}
+
+\subsection{System Architecture}
+
+The \textit{projectLSA} system is implemented entirely in the R programming language (version 4.0.0 or higher) and utilizes the Shiny framework for constructing the interactive web-based graphical user interface. The system architecture follows a modular design pattern in which each analytical method is encapsulated within a dedicated module, while shared functionality (data input, visualization, export) is provided through common service components.
+
+The application is structured as an R package that can be installed from CRAN using the standard R package installation mechanism. Upon installation, users launch the application by calling the \texttt{run\_projectLSA()} function, which initiates a local web server and opens the application interface in the user's default web browser. The application can also be deployed on a remote Shiny server to enable access via any internet-connected device.
+
+The user interface is organized as a tabbed navigation system with a homepage providing an overview and citation information, and separate tabs for each analytical module. Each module follows a consistent layout pattern: a left-side panel for input controls and model specification, and a main content area for displaying results, tables, plots, and diagnostics.
+
+The system integrates the following R packages as computational backends: tidyLPA and mclust for latent profile analysis; poLCA and glca for latent class analysis; mirt for item response theory modeling; psych for exploratory factor analysis; lavaan, semPlot, and semptools for confirmatory factor analysis and structural equation modeling; flextable and rmarkdown for report generation; and ggplot2, plotly, and ggiraph for interactive visualization.
+
+\subsection{Data Input System}
+
+The data input system provides a unified interface for loading datasets into the application. Users may either upload their own data files or select from built-in example datasets included with the package. The system supports the following file formats:
+
+\begin{itemize}[nosep, leftmargin=3em]
+\item Comma-separated values (CSV) files
+\item Microsoft Excel files (.xlsx, .xls) via the readxl package
+\item SPSS data files (.sav) via the haven package
+\item Stata data files (.dta) via the haven package
+\end{itemize}
+
+Upon loading a dataset, the system provides an interactive data preview table using the DT package, allowing users to inspect the data structure, variable types, and values before proceeding to analysis. The system automatically detects variable types and provides appropriate options for each analytical module based on the characteristics of the loaded data.
+
+\subsection{Latent Profile Analysis (LPA) Module}
+
+The LPA module enables users to identify latent subgroups (profiles) within a population based on continuous indicator variables. The module implements the following workflow:
+
+\textbf{Variable Selection.} Users select the continuous indicator variables from the loaded dataset using an interactive checkbox interface. The system validates that the selected variables are numeric and provides descriptive statistics for each.
+
+\textbf{Model Estimation.} The module utilizes the tidyLPA and mclust packages to estimate a series of mixture models. Users specify the range of profile numbers to evaluate (e.g., 2 through 6 profiles) and the model specification type. The system supports multiple variance-covariance structures, including equal variances with zero covariances, varying variances with zero covariances, equal variances with equal covariances, and varying variances with varying covariances.
+
+\textbf{Model Comparison.} The system generates a comprehensive model comparison table displaying fit indices for each estimated model, including: Akaike Information Criterion (AIC), Bayesian Information Criterion (BIC), sample-size adjusted BIC (SABIC), entropy, log-likelihood, and class proportions. These indices are presented in a sortable, interactive table that enables users to identify the best-fitting model based on established selection criteria.
+
+\textbf{Visualization.} The module provides interactive profile plots that display the mean values of indicator variables across identified profiles. Users can customize class names, color schemes, and plot dimensions. The visualization system uses plotly for interactive features including hover tooltips, zoom, and pan functionality.
+
+\textbf{Export.} Users can download profile membership assignments, descriptive statistics by profile, and the model comparison table in various formats.
+
+\subsection{Latent Class Analysis (LCA) Module}
+
+The LCA module enables identification of latent subgroups based on categorical (binary or ordinal) indicator variables. The module supports both standard LCA and multilevel LCA through two computational backends:
+
+\textbf{Standard LCA via poLCA.} The poLCA engine supports polytomous latent class analysis with categorical indicator variables. Users specify indicator variables and the number of classes to evaluate. The system estimates models for each specified number of classes and generates a model comparison table with AIC, BIC, log-likelihood, entropy, and class proportions.
+
+\textbf{Multilevel LCA via glca.} The glca engine extends the analysis to multilevel designs, supporting group-level covariates and hierarchical data structures. Users can specify both individual-level indicator variables and group-level identifiers.
+
+\textbf{Visualization.} The module provides interactive class profile plots using ggiraph, displaying conditional item-response probabilities for each identified class. These plots enable users to interpret the substantive meaning of each latent class by examining which response patterns are characteristic of each group.
+
+\textbf{Results Export.} Class membership probabilities, posterior classifications, and model comparison tables can be exported for further analysis.
+
+\subsection{Item Response Theory (IRT) Module}
+
+The IRT module provides a comprehensive interface for fitting and evaluating item response models using the mirt package. The module supports both unidimensional and multidimensional models:
+
+\textbf{Model Types.} The system supports: Rasch model (constrained one-parameter logistic), Two-Parameter Logistic (2PL) model, Three-Parameter Logistic (3PL) model for dichotomous items; and Graded Response Model (GRM), Generalized Partial Credit Model (GPCM), and Partial Credit Model (PCM) for polytomous items.
+
+\textbf{Item Analysis.} The module provides item parameter estimates (difficulty, discrimination, guessing parameters), standard errors, and fit statistics for each item. Item Characteristic Curves (ICCs) and Item Information Curves (IICs) are plotted interactively for each item.
+
+\textbf{Test-Level Diagnostics.} The system generates Test Information Functions (TIF), conditional standard errors of measurement, and total information curves. For multidimensional models, the module provides three-dimensional surface plots and heatmaps showing the joint distribution of information across latent dimensions.
+
+\textbf{Person Scoring.} The module computes Expected A Posteriori (EAP) factor scores for each respondent, which can be exported for further analysis.
+
+\subsection{Exploratory Factor Analysis (EFA) Module}
+
+The EFA module provides a structured workflow for discovering the latent factor structure underlying a set of observed variables using the psych package:
+
+\textbf{Preliminary Diagnostics.} The module computes and displays: Kaiser-Meyer-Olkin (KMO) measure of sampling adequacy for the overall dataset and for each variable; Bartlett's test of sphericity to assess whether the correlation matrix is significantly different from an identity matrix; and a correlation matrix heatmap for visual inspection of variable relationships.
+
+\textbf{Factor Number Determination.} The system implements parallel analysis, which compares observed eigenvalues against eigenvalues derived from random data of the same dimensions, providing an empirically supported criterion for determining the number of factors to extract.
+
+\textbf{Factor Extraction and Rotation.} Users can specify the extraction method (e.g., principal axis factoring, maximum likelihood) and rotation method (e.g., varimax, promax, oblimin). The system displays the resulting factor loading matrix with loadings below a user-specified threshold suppressed for clarity.
+
+\textbf{Output.} The module provides factor scores, communality estimates, factor correlation matrices (for oblique rotations), and a clean HTML summary of the analysis suitable for inclusion in research reports.
+
+\subsection{Confirmatory Factor Analysis (CFA) and Structural Equation Modeling (SEM) Module}
+
+The CFA/SEM module provides the most comprehensive analytical capability within the system, supporting model specification, estimation, evaluation, iterative refinement, and customizable path diagram visualization:
+
+\textbf{Model Specification.} Users specify CFA or SEM models using the standard lavaan model syntax through an integrated text editor. The system supports measurement models (factor definitions using the =\textasciitilde{} operator), structural regression paths (using the \textasciitilde{} operator), and covariance specifications (using the \textasciitilde{}\textasciitilde{} operator). Built-in example models are provided for demonstration.
+
+\textbf{Estimation Options.} Users can select from multiple estimators including Maximum Likelihood (ML), Maximum Likelihood with Robust Standard Errors (MLR), Weighted Least Squares Mean and Variance adjusted (WLSMV), and Unweighted Least Squares (ULS). Missing data handling options include listwise deletion, pairwise deletion, and Full Information Maximum Likelihood (FIML).
+
+\textbf{Model Fit Evaluation.} The system computes and displays a comprehensive set of fit indices including: Chi-square statistic ($\chi^2$) with degrees of freedom and p-value; Root Mean Square Error of Approximation (RMSEA); Comparative Fit Index (CFI); Tucker-Lewis Index (TLI); Standardized Root Mean Square Residual (SRMR); Goodness-of-Fit Index (GFI); and Normed Fit Index (NFI). Fit indices are evaluated against standard cut-off criteria and interpretive labels (good, acceptable, poor) are provided automatically.
+
+\textbf{Parameter Estimates.} The module displays standardized and unstandardized factor loadings, standard errors, z-values, and p-values in an interactive table. Variance estimates and R-squared values for each indicator are also provided.
+
+\textbf{Construct Validity Diagnostics.} The system computes Average Variance Extracted (AVE) and Composite Reliability (CR) for each latent factor, as well as the Heterotrait-Monotrait Ratio (HTMT) for assessing discriminant validity between factors.
+
+\textbf{Model History and Comparison.} The system maintains a history of all fitted models within a session, enabling users to compare fit indices across successive model modifications. Users can add notes to each model iteration and navigate between model versions. A model comparison table displays all historical models with their fit indices side by side. Models can be deleted from history without affecting the indexing of remaining models.
+
+\textbf{Path Diagram Visualization.} The module integrates the semPlot and semptools packages to generate fully customizable path diagrams. Users can control: layout algorithm (tree, tree2, tree3, spring, circle); node sizes for latent and manifest variables separately; edge label size and width; color scheme selection from 12 predefined palettes (Blue-Yellow, Ocean, Forest, Rainbow, Pastel, Greyscale, Earth, Vibrant, Monochrome, Sunset, Rose, Mint) or custom colors; rotation and orientation of the diagram; display of residuals and exogenous covariances; standardized versus unstandardized estimates; and significance markers on path coefficients.
+
+The path diagram includes an embedded fit index summary box below the plot, displaying selected fit indices in a compact, centered format. The decimal separator (period or comma) can be configured to support international conventions, and this setting applies to both the fit index display and the path coefficient labels on the diagram itself.
+
+\textbf{Report Generation.} The CFA/SEM module includes an automated HTML report generator that produces a publication-ready document containing: an automatically generated narrative interpretation of model fit based on standard criteria; a model comparison table across all fitted models; side-by-side path diagrams of the initial and final models; standardized and unstandardized parameter estimates in APA-formatted tables; and construct validity diagnostics (AVE, CR, HTMT) when applicable. The report uses single line spacing, Times New Roman font, and Unicode mathematical symbols for professional typographic quality.
+
+\textbf{Decimal Separator Configuration.} A unique feature of the CFA/SEM module is the configurable decimal separator, which allows users to switch between period (.) and comma (,) notation. This setting applies globally to all numerical outputs including fit indices in the plot, edge labels on the path diagram, and the exported HTML report, supporting researchers working in different international conventions.
+
+\subsection{Interactive Visualization System}
+
+The \textit{projectLSA} system employs a multi-layered visualization approach:
+
+\textbf{Static Plots.} High-resolution static plots are generated using base R graphics and ggplot2 for path diagrams, factor loading plots, and diagnostic charts.
+
+\textbf{Interactive Plots.} The plotly and ggiraph packages provide interactive features including hover tooltips displaying exact values, zoom and pan functionality, dynamic legend toggling, and configurable axis labels and titles. These interactive elements enhance the exploratory analysis process by enabling users to inspect individual data points and subsets without modifying the underlying model.
+
+\textbf{Export Capabilities.} All plots can be downloaded as high-resolution PNG images suitable for inclusion in publications. The download resolution is automatically optimized based on the plot dimensions and complexity.
+
+\subsection{Model Comparison Framework}
+
+A distinguishing feature of \textit{projectLSA} is its standardized model comparison framework that operates consistently across all analytical modules. The framework provides:
+
+\textbf{Fit Index Tables.} Each module generates sortable, interactive tables displaying model fit indices. The specific indices vary by method (e.g., AIC/BIC/entropy for mixture models; CFI/RMSEA/SRMR for CFA) but are presented in a consistent tabular format using the DT package.
+
+\textbf{Model Selection Guidance.} The system provides interpretive labels and color coding to help users identify the best-fitting model based on established criteria. For mixture models, this includes identifying the model with the lowest information criteria and highest entropy. For CFA, this includes evaluating each fit index against published cut-off values.
+
+\textbf{Historical Tracking.} In the CFA/SEM module, the system maintains a complete history of all fitted models, enabling users to trace the progression of model refinement and justify their final model selection with reference to the full sequence of modifications.
+
+\subsection{Automated Reporting System}
+
+The system includes an automated reporting module that generates formatted HTML documents containing the complete results of an analysis. Reports are generated using R Markdown and the rmarkdown package, and include:
+
+\begin{itemize}[nosep, leftmargin=3em]
+\item Narrative text that automatically interprets model fit based on standard criteria
+\item APA-formatted tables produced using the flextable package
+\item Embedded path diagrams and visualizations
+\item Model comparison tables with fit indices
+\item Construct validity diagnostics
+\end{itemize}
+
+The reporting system supports configurable decimal separators and produces documents with single line spacing and professional typography suitable for direct inclusion in academic manuscripts.
+
+\section{Industrial Applicability}
+
+The present invention has direct industrial applicability in the following fields:
+
+\textbf{Educational Assessment.} The system enables educational researchers and testing organizations to evaluate the psychometric properties of assessment instruments using IRT and CFA, identify subgroups of students with distinct learning profiles using LPA, and classify response patterns using LCA.
+
+\textbf{Psychological Measurement.} Researchers developing and validating psychological scales can use the EFA module to discover factor structures and the CFA module to confirm hypothesized measurement models, with automated computation of reliability and validity indices.
+
+\textbf{Market Research.} The LPA and LCA modules enable identification of consumer segments based on survey responses, supporting targeted marketing strategies and product development decisions.
+
+\textbf{Clinical Research.} The system supports identification of patient subgroups with distinct symptom profiles, evaluation of diagnostic instrument validity, and classification of treatment response patterns.
+
+\textbf{Institutional Research.} Universities, testing agencies, and government bodies can deploy the system on institutional servers to provide standardized analytical capabilities to researchers and analysts without requiring individual programming expertise.
+
+The system's web-based architecture, code-free interface, and automated reporting capabilities make it suitable for deployment in both research and applied settings where latent structure analysis is required but programming expertise may be limited.
+
+\end{document}

@@ -1,0 +1,183 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[top=2.0cm, left=2.5cm, bottom=3.0cm, right=3.0cm]{geometry}
+\usepackage{times}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\setlength{\parindent}{3em}
+\setlength{\parskip}{0pt}
+\singlespacing
+
+\titleformat{\section}{\normalfont\bfseries\large}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\bfseries\normalsize}{\thesubsection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+\begin{document}
+
+\begin{center}
+\textbf{\large DESKRIPSI}\\[12pt]
+\textbf{\large Judul Invensi:}\\[6pt]
+\textbf{projectLSA: Aplikasi Shiny untuk Analisis Struktur Laten\\dengan Antarmuka Pengguna Grafis}
+\end{center}
+
+\vspace{12pt}
+
+\section{Bidang Teknik Invensi}
+
+Invensi ini berkaitan dengan bidang perangkat lunak komputasi statistik, khususnya suatu sistem dan metode yang diimplementasikan pada komputer untuk melakukan analisis struktur laten secara terintegrasi melalui antarmuka pengguna grafis yang interaktif. Invensi ini menyediakan platform terpadu yang menggabungkan berbagai teknik pemodelan variabel laten, meliputi Latent Profile Analysis (LPA), Latent Class Analysis (LCA), analisis berbasis Item Response Theory (IRT), Exploratory Factor Analysis (EFA), dan Confirmatory Factor Analysis (CFA)/Structural Equation Modeling (SEM), dalam satu aplikasi berbasis web yang dibangun menggunakan bahasa pemrograman R dan kerangka kerja Shiny.
+
+\section{Latar Belakang Invensi}
+
+Analisis struktur laten mencakup suatu keluarga metode statistik yang digunakan untuk memodelkan variabel yang tidak teramati (laten) dari data yang teramati. Metode-metode ini merupakan hal yang fundamental dalam pengukuran psikologis, asesmen pendidikan, penelitian ilmu sosial, dan berbagai disiplin lainnya di mana peneliti berupaya mengidentifikasi pola-pola tersembunyi, mengklasifikasikan individu ke dalam subkelompok yang homogen, atau mengevaluasi kualitas instrumen pengukuran.
+
+Metode-metode utama analisis struktur laten meliputi: (a) Latent Profile Analysis (LPA), yang mengidentifikasi subkelompok homogen berdasarkan variabel indikator kontinu; (b) Latent Class Analysis (LCA), yang mengidentifikasi subkelompok berdasarkan variabel indikator kategorikal; (c) Item Response Theory (IRT), yang memodelkan hubungan probabilistik antara sifat laten dan respons item; (d) Exploratory Factor Analysis (EFA), yang mengidentifikasi struktur faktor yang mendasari dari korelasi yang teramati; dan (e) Confirmatory Factor Analysis (CFA), yang menguji model pengukuran yang dihipotesiskan terhadap data yang teramati.
+
+Meskipun metode-metode ini telah digunakan secara luas, implementasi praktisnya tetap menantang secara teknis karena beberapa alasan. Pertama, setiap metode biasanya memerlukan paket perangkat lunak khusus yang terpisah dengan sintaks, struktur data, dan format output-nya sendiri. Misalnya, LPA umumnya dilakukan menggunakan paket tidyLPA, LCA menggunakan poLCA atau glca, IRT menggunakan mirt, EFA menggunakan psych, dan CFA menggunakan lavaan. Peralihan antar paket ini memerlukan rekonfigurasi alur kerja analitis yang substansial, meningkatkan beban kognitif, dan dapat mengurangi reprodusibilitas.
+
+Kedua, sebagian besar alat-alat ini mengharuskan peneliti untuk menulis kode pemrograman, yang menciptakan hambatan signifikan bagi peneliti terapan, mahasiswa, dan praktisi yang memiliki keahlian substantif tetapi keterampilan pemrograman yang terbatas. Meskipun beberapa alat berbasis antarmuka pengguna grafis (GUI) telah ada, alat-alat tersebut biasanya hanya menangani satu metode analitis dan tidak terintegrasi lintas berbagai teknik analisis struktur laten.
+
+Ketiga, proses perbandingan dan pemilihan model bersifat iteratif dan kompleks. Dalam pemodelan campuran, pemilihan jumlah kelas atau profil yang optimal melibatkan perbandingan beberapa model menggunakan kriteria informasi, nilai entropi, dan uji berbasis likelihood. Dalam CFA, penyempurnaan model memerlukan pemeriksaan indeks modifikasi, respesifikasi model, dan perbandingan indeks kecocokan di seluruh modifikasi berturut-turut. Alat-alat yang ada tidak menyediakan kerangka kerja terpadu untuk mengelola proses iteratif ini lintas berbagai metode analitis.
+
+Oleh karena itu, diperlukan suatu sistem perangkat lunak terintegrasi yang: (a) menggabungkan beberapa metode analisis struktur laten dalam satu platform; (b) menyediakan antarmuka pengguna grafis interaktif yang menghilangkan kebutuhan penulisan kode; (c) mendukung perbandingan model secara sistematis menggunakan indeks kecocokan standar dan kriteria diagnostik; (d) memungkinkan visualisasi hasil secara interaktif; dan (e) menghasilkan output yang dapat diekspor dan sesuai untuk pelaporan dan publikasi akademis.
+
+\section{Ringkasan Invensi}
+
+Invensi ini, yang diberi nama \textit{projectLSA}, adalah suatu sistem yang diimplementasikan pada komputer untuk analisis struktur laten secara terintegrasi yang mengatasi keterbatasan-keterbatasan yang diidentifikasi dalam latar belakang. Sistem ini diimplementasikan sebagai aplikasi berbasis web yang dibangun di atas bahasa pemrograman R dan kerangka kerja Shiny, menyediakan antarmuka pengguna grafis yang interaktif sehingga pengguna dapat melakukan berbagai bentuk analisis struktur laten tanpa menulis kode.
+
+Sistem ini terdiri dari lima modul analitis utama: (1) modul Latent Profile Analysis yang mendukung estimasi otomatis beberapa model campuran dengan jumlah profil dan spesifikasi model yang bervariasi; (2) modul Latent Class Analysis yang mendukung model kelas laten standar maupun multilevel dengan indikator kategorikal; (3) modul Item Response Theory yang mendukung model respons item dikotomi dan politomi termasuk Rasch, 2PL, 3PL, GRM, GPCM, dan model multidimensi; (4) modul Exploratory Factor Analysis yang menyediakan pengujian diagnostik otomatis, analisis paralel, dan ekstraksi faktor dengan berbagai metode rotasi; dan (5) modul Confirmatory Factor Analysis dan Structural Equation Modeling yang mendukung spesifikasi model melalui editor sintaks, penyempurnaan model secara iteratif, dan visualisasi diagram jalur yang dapat dikustomisasi.
+
+Setiap modul terintegrasi dengan sistem input data terpadu yang menerima berbagai format file (CSV, Excel, SPSS, Stata), kerangka perbandingan model terstandarisasi yang memungkinkan evaluasi model-model bersaing secara berdampingan menggunakan indeks kecocokan yang telah ditetapkan, sistem visualisasi interaktif yang menghasilkan grafik berkualitas publikasi, dan sistem pelaporan otomatis yang menghasilkan dokumen HTML terformat yang sesuai untuk publikasi akademis.
+
+Sistem ini tersedia secara gratis melalui Comprehensive R Archive Network (CRAN) dan dapat dipasang secara lokal dalam lingkungan R atau dihosting di server Shiny untuk penggunaan institusional.
+
+\section{Uraian Lengkap Invensi}
+
+\subsection{Arsitektur Sistem}
+
+Sistem \textit{projectLSA} diimplementasikan sepenuhnya dalam bahasa pemrograman R (versi 4.0.0 atau lebih tinggi) dan menggunakan kerangka kerja Shiny untuk membangun antarmuka pengguna grafis berbasis web yang interaktif. Arsitektur sistem mengikuti pola desain modular di mana setiap metode analitis dienkapsulasi dalam modul khusus, sementara fungsionalitas bersama (input data, visualisasi, ekspor) disediakan melalui komponen layanan bersama.
+
+Aplikasi ini terstruktur sebagai paket R yang dapat dipasang dari CRAN menggunakan mekanisme pemasangan paket R standar. Setelah pemasangan, pengguna meluncurkan aplikasi dengan memanggil fungsi \texttt{run\_projectLSA()}, yang memulai server web lokal dan membuka antarmuka aplikasi di browser web default pengguna. Aplikasi juga dapat dideploy di server Shiny jarak jauh untuk memungkinkan akses melalui perangkat apa pun yang terhubung ke internet.
+
+Antarmuka pengguna diatur sebagai sistem navigasi bertab dengan halaman beranda yang menyediakan gambaran umum dan informasi sitasi, serta tab terpisah untuk setiap modul analitis. Setiap modul mengikuti pola tata letak yang konsisten: panel sisi kiri untuk kontrol input dan spesifikasi model, dan area konten utama untuk menampilkan hasil, tabel, plot, dan diagnostik.
+
+Sistem ini mengintegrasikan paket-paket R berikut sebagai backend komputasi: tidyLPA dan mclust untuk analisis profil laten; poLCA dan glca untuk analisis kelas laten; mirt untuk pemodelan teori respons item; psych untuk analisis faktor eksploratori; lavaan, semPlot, dan semptools untuk analisis faktor konfirmatori dan pemodelan persamaan struktural; flextable dan rmarkdown untuk pembuatan laporan; serta ggplot2, plotly, dan ggiraph untuk visualisasi interaktif.
+
+\subsection{Sistem Input Data}
+
+Sistem input data menyediakan antarmuka terpadu untuk memuat dataset ke dalam aplikasi. Pengguna dapat mengunggah file data mereka sendiri atau memilih dari dataset contoh bawaan yang disertakan dalam paket. Sistem mendukung format file berikut:
+
+\begin{itemize}[nosep, leftmargin=3em]
+\item File comma-separated values (CSV)
+\item File Microsoft Excel (.xlsx, .xls) melalui paket readxl
+\item File data SPSS (.sav) melalui paket haven
+\item File data Stata (.dta) melalui paket haven
+\end{itemize}
+
+Setelah memuat dataset, sistem menyediakan tabel pratinjau data interaktif menggunakan paket DT, memungkinkan pengguna untuk memeriksa struktur data, jenis variabel, dan nilai-nilai sebelum melanjutkan ke analisis. Sistem secara otomatis mendeteksi jenis variabel dan menyediakan opsi yang sesuai untuk setiap modul analitis berdasarkan karakteristik data yang dimuat.
+
+\subsection{Modul Latent Profile Analysis (LPA)}
+
+Modul LPA memungkinkan pengguna untuk mengidentifikasi subkelompok laten (profil) dalam suatu populasi berdasarkan variabel indikator kontinu. Modul ini mengimplementasikan alur kerja berikut:
+
+\textbf{Pemilihan Variabel.} Pengguna memilih variabel indikator kontinu dari dataset yang dimuat menggunakan antarmuka checkbox interaktif. Sistem memvalidasi bahwa variabel yang dipilih bersifat numerik dan menyediakan statistik deskriptif untuk masing-masing variabel.
+
+\textbf{Estimasi Model.} Modul menggunakan paket tidyLPA dan mclust untuk mengestimasi serangkaian model campuran. Pengguna menentukan rentang jumlah profil yang akan dievaluasi (misalnya 2 hingga 6 profil) dan jenis spesifikasi model. Sistem mendukung berbagai struktur varians-kovarians, termasuk varians sama dengan kovarians nol, varians berbeda dengan kovarians nol, varians sama dengan kovarians sama, dan varians berbeda dengan kovarians berbeda.
+
+\textbf{Perbandingan Model.} Sistem menghasilkan tabel perbandingan model komprehensif yang menampilkan indeks kecocokan untuk setiap model yang diestimasi, meliputi: Akaike Information Criterion (AIC), Bayesian Information Criterion (BIC), sample-size adjusted BIC (SABIC), entropi, log-likelihood, dan proporsi kelas.
+
+\textbf{Visualisasi.} Modul menyediakan plot profil interaktif yang menampilkan nilai rata-rata variabel indikator di seluruh profil yang teridentifikasi. Pengguna dapat menyesuaikan nama kelas, skema warna, dan dimensi plot.
+
+\textbf{Ekspor.} Pengguna dapat mengunduh penugasan keanggotaan profil, statistik deskriptif berdasarkan profil, dan tabel perbandingan model dalam berbagai format.
+
+\subsection{Modul Latent Class Analysis (LCA)}
+
+Modul LCA memungkinkan identifikasi subkelompok laten berdasarkan variabel indikator kategorikal (biner atau ordinal). Modul ini mendukung LCA standar maupun LCA multilevel melalui dua backend komputasi:
+
+\textbf{LCA Standar via poLCA.} Mesin poLCA mendukung analisis kelas laten politomi dengan variabel indikator kategorikal. Pengguna menentukan variabel indikator dan jumlah kelas yang akan dievaluasi.
+
+\textbf{LCA Multilevel via glca.} Mesin glca memperluas analisis ke desain multilevel, mendukung kovariat tingkat kelompok dan struktur data hierarkis.
+
+\textbf{Visualisasi.} Modul menyediakan plot profil kelas interaktif menggunakan ggiraph, menampilkan probabilitas respons item kondisional untuk setiap kelas yang teridentifikasi.
+
+\subsection{Modul Item Response Theory (IRT)}
+
+Modul IRT menyediakan antarmuka komprehensif untuk fitting dan evaluasi model respons item menggunakan paket mirt. Modul ini mendukung model unidimensi maupun multidimensi:
+
+\textbf{Jenis Model.} Sistem mendukung: model Rasch, model Two-Parameter Logistic (2PL), model Three-Parameter Logistic (3PL) untuk item dikotomi; serta Graded Response Model (GRM), Generalized Partial Credit Model (GPCM), dan Partial Credit Model (PCM) untuk item politomi.
+
+\textbf{Analisis Item.} Modul menyediakan estimasi parameter item (tingkat kesulitan, daya diskriminasi, parameter tebakan), standard error, dan statistik kecocokan untuk setiap item. Item Characteristic Curves (ICC) dan Item Information Curves (IIC) diplot secara interaktif.
+
+\textbf{Diagnostik Tingkat Tes.} Sistem menghasilkan Test Information Function (TIF), standard error pengukuran kondisional, dan kurva informasi total. Untuk model multidimensi, modul menyediakan plot permukaan tiga dimensi dan heatmap.
+
+\textbf{Penskoran.} Modul menghitung skor faktor Expected A Posteriori (EAP) untuk setiap responden, yang dapat diekspor untuk analisis lebih lanjut.
+
+\subsection{Modul Exploratory Factor Analysis (EFA)}
+
+Modul EFA menyediakan alur kerja terstruktur untuk menemukan struktur faktor laten yang mendasari sekumpulan variabel teramati menggunakan paket psych:
+
+\textbf{Diagnostik Awal.} Modul menghitung dan menampilkan: ukuran Kaiser-Meyer-Olkin (KMO) untuk kecukupan sampling; uji sfenrisitas Bartlett; dan heatmap matriks korelasi untuk inspeksi visual hubungan antar variabel.
+
+\textbf{Penentuan Jumlah Faktor.} Sistem mengimplementasikan analisis paralel, yang membandingkan eigenvalue yang teramati dengan eigenvalue yang diturunkan dari data acak berdimensi sama.
+
+\textbf{Ekstraksi dan Rotasi Faktor.} Pengguna dapat menentukan metode ekstraksi (misalnya principal axis factoring, maximum likelihood) dan metode rotasi (misalnya varimax, promax, oblimin). Sistem menampilkan matriks loading faktor yang dihasilkan.
+
+\textbf{Output.} Modul menyediakan skor faktor, estimasi komunalitas, matriks korelasi faktor, dan ringkasan HTML yang bersih.
+
+\subsection{Modul Confirmatory Factor Analysis (CFA) dan Structural Equation Modeling (SEM)}
+
+Modul CFA/SEM menyediakan kapabilitas analitis paling komprehensif dalam sistem, mendukung spesifikasi model, estimasi, evaluasi, penyempurnaan iteratif, dan visualisasi diagram jalur yang dapat dikustomisasi:
+
+\textbf{Spesifikasi Model.} Pengguna menentukan model CFA atau SEM menggunakan sintaks model lavaan standar melalui editor teks terintegrasi. Sistem mendukung model pengukuran (definisi faktor menggunakan operator =\textasciitilde{}), jalur regresi struktural (menggunakan operator \textasciitilde{}), dan spesifikasi kovarians (menggunakan operator \textasciitilde{}\textasciitilde{}).
+
+\textbf{Opsi Estimasi.} Pengguna dapat memilih dari beberapa estimator termasuk Maximum Likelihood (ML), Maximum Likelihood with Robust Standard Errors (MLR), Weighted Least Squares Mean and Variance adjusted (WLSMV), dan Unweighted Least Squares (ULS). Opsi penanganan data hilang meliputi listwise deletion, pairwise deletion, dan Full Information Maximum Likelihood (FIML).
+
+\textbf{Evaluasi Kecocokan Model.} Sistem menghitung dan menampilkan rangkaian indeks kecocokan yang komprehensif meliputi: statistik Chi-square ($\chi^2$) dengan derajat kebebasan dan nilai-p; Root Mean Square Error of Approximation (RMSEA); Comparative Fit Index (CFI); Tucker-Lewis Index (TLI); Standardized Root Mean Square Residual (SRMR); Goodness-of-Fit Index (GFI); dan Normed Fit Index (NFI). Indeks kecocokan dievaluasi terhadap kriteria cut-off standar dan label interpretatif (baik, dapat diterima, buruk) disediakan secara otomatis.
+
+\textbf{Estimasi Parameter.} Modul menampilkan loading faktor terstandarisasi dan tidak terstandarisasi, standard error, nilai-z, dan nilai-p dalam tabel interaktif. Estimasi varians dan nilai R-squared untuk setiap indikator juga disediakan.
+
+\textbf{Diagnostik Validitas Konstruk.} Sistem menghitung Average Variance Extracted (AVE) dan Composite Reliability (CR) untuk setiap faktor laten, serta Heterotrait-Monotrait Ratio (HTMT) untuk menilai validitas diskriminan antar faktor.
+
+\textbf{Riwayat dan Perbandingan Model.} Sistem memelihara riwayat semua model yang di-fitting dalam satu sesi, memungkinkan pengguna untuk membandingkan indeks kecocokan di seluruh modifikasi model berturut-turut. Pengguna dapat menambahkan catatan pada setiap iterasi model dan bernavigasi antar versi model.
+
+\textbf{Visualisasi Diagram Jalur.} Modul mengintegrasikan paket semPlot dan semptools untuk menghasilkan diagram jalur yang sepenuhnya dapat dikustomisasi. Pengguna dapat mengontrol: algoritma tata letak; ukuran node; ukuran dan lebar label edge; pemilihan skema warna dari 12 palet yang telah ditentukan (Blue-Yellow, Ocean, Forest, Rainbow, Pastel, Greyscale, Earth, Vibrant, Monochrome, Sunset, Rose, Mint) atau warna kustom; rotasi dan orientasi diagram; tampilan residual dan kovarians eksogen; estimasi terstandarisasi versus tidak terstandarisasi; dan penanda signifikansi pada koefisien jalur.
+
+\textbf{Pembuatan Laporan.} Modul CFA/SEM mencakup generator laporan HTML otomatis yang menghasilkan dokumen siap publikasi yang berisi: narasi interpretasi kecocokan model yang dihasilkan secara otomatis; tabel perbandingan model; diagram jalur berdampingan dari model awal dan akhir; estimasi parameter dalam tabel berformat APA; dan diagnostik validitas konstruk (AVE, CR, HTMT).
+
+\textbf{Konfigurasi Pemisah Desimal.} Fitur unik dari modul CFA/SEM adalah pemisah desimal yang dapat dikonfigurasi, yang memungkinkan pengguna beralih antara notasi titik (.) dan koma (,). Pengaturan ini berlaku secara global untuk semua output numerik.
+
+\subsection{Sistem Visualisasi Interaktif}
+
+Sistem \textit{projectLSA} menggunakan pendekatan visualisasi berlapis yang mencakup plot statis berkualitas tinggi menggunakan base R graphics dan ggplot2, serta plot interaktif menggunakan paket plotly dan ggiraph yang menyediakan fitur hover tooltips, zoom dan pan, toggling legenda dinamis, dan label sumbu yang dapat dikonfigurasi. Semua plot dapat diunduh sebagai gambar PNG beresolusi tinggi yang sesuai untuk dimasukkan dalam publikasi.
+
+\subsection{Kerangka Perbandingan Model}
+
+Fitur pembeda dari \textit{projectLSA} adalah kerangka perbandingan model terstandarisasi yang beroperasi secara konsisten di seluruh modul analitis. Kerangka ini menyediakan tabel indeks kecocokan yang dapat diurutkan, panduan pemilihan model berdasarkan kriteria yang ditetapkan, dan pelacakan historis yang lengkap untuk proses penyempurnaan model.
+
+\subsection{Sistem Pelaporan Otomatis}
+
+Sistem ini mencakup modul pelaporan otomatis yang menghasilkan dokumen HTML berformat yang berisi hasil analisis secara lengkap. Laporan dihasilkan menggunakan R Markdown dan paket rmarkdown, serta mencakup teks narasi, tabel berformat APA menggunakan paket flextable, diagram jalur tertanam, dan diagnostik validitas konstruk. Sistem pelaporan mendukung pemisah desimal yang dapat dikonfigurasi dan menghasilkan dokumen dengan spasi tunggal dan tipografi profesional yang sesuai untuk dimasukkan langsung dalam manuskrip akademis.
+
+\section{Kegunaan Industri}
+
+Invensi ini memiliki kegunaan industri langsung dalam bidang-bidang berikut:
+
+\textbf{Asesmen Pendidikan.} Sistem ini memungkinkan peneliti pendidikan dan organisasi pengujian untuk mengevaluasi properti psikometrik instrumen asesmen menggunakan IRT dan CFA, mengidentifikasi subkelompok siswa dengan profil belajar yang berbeda menggunakan LPA, dan mengklasifikasikan pola respons menggunakan LCA.
+
+\textbf{Pengukuran Psikologis.} Peneliti yang mengembangkan dan memvalidasi skala psikologis dapat menggunakan modul EFA untuk menemukan struktur faktor dan modul CFA untuk mengkonfirmasi model pengukuran yang dihipotesiskan, dengan komputasi indeks reliabilitas dan validitas secara otomatis.
+
+\textbf{Riset Pasar.} Modul LPA dan LCA memungkinkan identifikasi segmen konsumen berdasarkan respons survei, mendukung strategi pemasaran yang ditargetkan dan keputusan pengembangan produk.
+
+\textbf{Penelitian Klinis.} Sistem mendukung identifikasi subkelompok pasien dengan profil gejala yang berbeda, evaluasi validitas instrumen diagnostik, dan klasifikasi pola respons pengobatan.
+
+\textbf{Penelitian Institusional.} Universitas, lembaga pengujian, dan instansi pemerintah dapat mendeploy sistem di server institusional untuk menyediakan kapabilitas analitis terstandarisasi kepada peneliti dan analis tanpa memerlukan keahlian pemrograman individual.
+
+Arsitektur berbasis web, antarmuka bebas kode, dan kapabilitas pelaporan otomatis sistem ini menjadikannya sesuai untuk deployment di lingkungan penelitian maupun terapan di mana analisis struktur laten diperlukan tetapi keahlian pemrograman mungkin terbatas.
+
+\end{document}

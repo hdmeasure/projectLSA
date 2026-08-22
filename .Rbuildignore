@@ -12,3 +12,7 @@
 ^docs$
 ^pkgdown$
 ^patent-docs$
+(^|/)\.DS_Store$
+\.DS_Store
+.*\.DS_Store
+^.*\.tar\.gz$

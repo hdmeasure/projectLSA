@@ -4,6 +4,44 @@
 #' will include the appropriate import directives.
 #'
 #' @import shiny
+#' @importFrom colourpicker colourInput
+#' @importFrom data.table data.table
+#' @importFrom dplyr select
+#' @importFrom DT datatable
+#' @importFrom flextable flextable
+#' @importFrom ggiraph girafe
+#' @importFrom ggplot2 ggplot
+#' @importFrom glca glca
+#' @importFrom haven read_sav
+#' @importFrom httr POST
+#' @importFrom jsonlite fromJSON
+#' @importFrom kableExtra kbl
+#' @importFrom knitr knit
+#' @importFrom lavaan sem
+#' @importFrom magick image_read
+#' @importFrom mclust Mclust
+#' @importFrom mirt mirt
+#' @importFrom officer read_docx
+#' @importFrom plotly plot_ly
+#' @importFrom poLCA poLCA
+#' @importFrom psych fa
+#' @importFrom purrr map
+#' @importFrom readr read_csv
+#' @importFrom readxl read_excel
+#' @importFrom rlang .data
+#' @importFrom rmarkdown render
+#' @importFrom scales percent
+#' @importFrom semPlot semPaths
+#' @importFrom semptools mark_sig
+#' @importFrom shinyBS bsTooltip
+#' @importFrom shinycssloaders withSpinner
+#' @importFrom shinyWidgets pickerInput
+#' @importFrom stats sd
+#' @importFrom stringr str_detect
+#' @importFrom tibble tibble
+#' @importFrom tidyLPA estimate_profiles
+#' @importFrom tidyr pivot_longer
+#' @importFrom viridisLite viridis
+#' @importFrom writexl write_xlsx
 #' @keywords internal
 "_PACKAGE"
-

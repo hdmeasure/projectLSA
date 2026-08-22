@@ -1,0 +1,89 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[top=2.0cm, left=2.5cm, bottom=3.0cm, right=3.0cm]{geometry}
+\usepackage{times}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\setlength{\parindent}{3em}
+\setlength{\parskip}{0pt}
+\singlespacing
+
+\begin{document}
+
+\begin{center}
+\textbf{\large KLAIM}\\[12pt]
+\textbf{projectLSA: Aplikasi Shiny untuk Analisis Struktur Laten\\dengan Antarmuka Pengguna Grafis}
+\end{center}
+
+\vspace{12pt}
+
+\begin{enumerate}[leftmargin=3em, labelsep=1em, itemsep=12pt]
+
+\item Suatu sistem yang diimplementasikan pada komputer untuk analisis struktur laten secara terintegrasi, yang terdiri dari:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item antarmuka pengguna grafis berbasis web yang dibangun di atas bahasa pemrograman R dan kerangka kerja Shiny yang memungkinkan pengguna melakukan analisis struktur laten tanpa menulis kode pemrograman;
+\item modul input data terpadu yang menerima berbagai format file termasuk CSV, Excel, SPSS, dan file data Stata, serta menyediakan pratinjau data interaktif dan deteksi jenis variabel secara otomatis;
+\item modul Latent Profile Analysis (LPA) untuk mengidentifikasi subkelompok laten berdasarkan variabel indikator kontinu, memanfaatkan backend komputasi tidyLPA dan mclust, mendukung berbagai struktur varians-kovarians, dan menyediakan estimasi otomatis beberapa model campuran dengan perbandingan model berdasarkan AIC, BIC, entropi, dan log-likelihood;
+\item modul Latent Class Analysis (LCA) untuk mengidentifikasi subkelompok laten berdasarkan variabel indikator kategorikal, mendukung LCA standar melalui paket poLCA maupun LCA multilevel melalui paket glca dengan struktur data hierarkis;
+\item modul Item Response Theory (IRT) untuk fitting dan evaluasi model respons item unidimensi dan multidimensi termasuk Rasch, 2PL, 3PL, GRM, GPCM, dan PCM, menyediakan Item Characteristic Curves interaktif, Item Information Curves, Test Information Functions, dan skor faktor Expected A Posteriori;
+\item modul Exploratory Factor Analysis (EFA) untuk menemukan struktur faktor laten, menyediakan pengujian diagnostik otomatis termasuk KMO dan uji Bartlett, analisis paralel untuk penentuan jumlah faktor, dan ekstraksi faktor dengan berbagai metode rotasi;
+\item modul Confirmatory Factor Analysis (CFA) dan Structural Equation Modeling (SEM) untuk menguji model pengukuran dan struktural yang dihipotesiskan menggunakan kerangka kerja lavaan, mendukung berbagai estimator termasuk ML, MLR, WLSMV, dan ULS;
+\item kerangka perbandingan model terstandarisasi yang beroperasi secara konsisten di seluruh modul analitis, menyediakan tabel indeks kecocokan interaktif yang dapat diurutkan dan panduan interpretatif; dan
+\item sistem pelaporan otomatis yang menghasilkan dokumen HTML berformat yang memuat interpretasi narasi, tabel berformat APA, dan visualisasi tertanam.
+\end{enumerate}
+
+\item Sistem menurut klaim 1, di mana modul Confirmatory Factor Analysis dan Structural Equation Modeling selanjutnya terdiri dari:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item editor spesifikasi model yang menerima sintaks lavaan untuk mendefinisikan model pengukuran menggunakan operator =\textasciitilde{}, jalur regresi struktural menggunakan operator \textasciitilde{}, dan spesifikasi kovarians menggunakan operator \textasciitilde{}\textasciitilde{};
+\item komputasi dan interpretasi otomatis indeks kecocokan termasuk Chi-square ($\chi^2$) dengan derajat kebebasan dan nilai-p, Root Mean Square Error of Approximation (RMSEA), Comparative Fit Index (CFI), Tucker-Lewis Index (TLI), Standardized Root Mean Square Residual (SRMR), Goodness-of-Fit Index (GFI), dan Normed Fit Index (NFI), dengan evaluasi terhadap kriteria cut-off standar dan label interpretatif otomatis;
+\item diagnostik validitas konstruk termasuk Average Variance Extracted (AVE), Composite Reliability (CR), dan Heterotrait-Monotrait Ratio (HTMT) untuk menilai validitas diskriminan;
+\item pemisah desimal yang dapat dikonfigurasi yang berlaku secara global untuk semua output numerik termasuk indeks kecocokan dan label edge diagram jalur, mendukung notasi titik maupun koma untuk konvensi internasional; dan
+\item visualisasi diagram jalur yang sepenuhnya dapat dikustomisasi menggunakan paket semPlot dan semptools, dengan 12 palet warna yang telah ditentukan, ukuran node yang dapat dikonfigurasi, lebar edge, algoritma tata letak, penanda signifikansi pada koefisien jalur, dan kotak ringkasan indeks kecocokan tertanam yang diposisikan secara sentral.
+\end{enumerate}
+
+\item Sistem menurut klaim 1, di mana kerangka perbandingan model terstandarisasi selanjutnya terdiri dari:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item tabel indeks kecocokan yang dapat diurutkan dan interaktif yang dihasilkan menggunakan paket DT yang menyajikan indeks yang sesuai dengan metode secara konsisten di seluruh modul analitis;
+\item sistem riwayat model dalam modul CFA/SEM yang memelihara catatan sekuensial semua model yang di-fitting dalam satu sesi, memungkinkan pengguna untuk membandingkan indeks kecocokan di seluruh modifikasi model berturut-turut, menambahkan catatan anotasi pada setiap iterasi model, dan bernavigasi antar versi model; dan
+\item deteksi jenis model otomatis yang membedakan antara CFA dan SEM berdasarkan keberadaan jalur regresi, menyesuaikan label output dan konten laporan secara sesuai.
+\end{enumerate}
+
+\item Sistem menurut klaim 1, di mana sistem pelaporan otomatis selanjutnya terdiri dari:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item generator laporan berbasis R Markdown yang menghasilkan dokumen HTML berformat dengan spasi baris tunggal dan tipografi Times New Roman;
+\item teks narasi yang dihasilkan secara otomatis yang menginterpretasikan kecocokan model berdasarkan kriteria cut-off standar termasuk pedoman Hu dan Bentler (1999);
+\item tabel berformat APA yang dihasilkan menggunakan paket flextable dengan spasi baris dan padding yang dapat dikonfigurasi;
+\item diagram jalur tertanam secara berdampingan yang menampilkan model awal dan akhir untuk perbandingan visual;
+\item tabel diagnostik validitas konstruk termasuk matriks AVE, CR, dan HTMT; dan
+\item dukungan pemisah desimal yang dapat dikonfigurasi untuk konvensi internasional yang diterapkan secara konsisten di seluruh dokumen.
+\end{enumerate}
+
+\item Sistem menurut klaim 1, di mana antarmuka pengguna grafis berbasis web selanjutnya terdiri dari:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item sistem navigasi bertab yang menyediakan antarmuka terpisah untuk setiap modul analitis dengan pola tata letak yang konsisten berupa kontrol input pada panel sisi kiri dan hasil ditampilkan di area konten utama;
+\item tabel data interaktif dengan kemampuan pengurutan, penyaringan, dan pencarian untuk semua output tabular;
+\item dataset contoh bawaan yang memungkinkan pengguna mendemonstrasikan dan mereplikasi alur kerja analitis tanpa memerlukan data eksternal;
+\item halaman beranda dengan informasi sitasi, dokumentasi paket, dan antarmuka dukungan donasi; dan
+\item kemampuan deployment di lingkungan R lokal maupun server Shiny jarak jauh untuk penggunaan institusional, dengan versi berbasis web yang dapat diakses tanpa instalasi lokal.
+\end{enumerate}
+
+\item Suatu metode yang diimplementasikan pada komputer untuk melakukan analisis struktur laten secara terintegrasi, yang terdiri dari langkah-langkah:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item menerima dataset melalui antarmuka pengguna grafis berbasis web dalam salah satu dari sejumlah format file yang didukung termasuk CSV, Excel, SPSS, dan Stata;
+\item menyajikan dataset dalam tabel pratinjau interaktif dengan deteksi jenis variabel secara otomatis;
+\item menerima input pengguna yang menentukan satu atau lebih metode analitis yang akan diterapkan dari sekumpulan metode yang terdiri dari Latent Profile Analysis, Latent Class Analysis, analisis Item Response Theory, Exploratory Factor Analysis, dan Confirmatory Factor Analysis/Structural Equation Modeling;
+\item mengestimasi satu atau lebih model statistik berdasarkan metode analitis yang ditentukan dan parameter yang didefinisikan pengguna tanpa mengharuskan pengguna menulis kode pemrograman;
+\item menghitung dan menampilkan indeks kecocokan model dalam tabel perbandingan terstandarisasi dengan panduan interpretatif berdasarkan kriteria yang ditetapkan;
+\item menghasilkan visualisasi interaktif dari hasil model termasuk plot profil, plot probabilitas kelas, kurva karakteristik item, matriks loading faktor, atau diagram jalur sesuai dengan metode yang dipilih;
+\item memelihara riwayat model yang mencatat semua model yang di-fitting dalam satu sesi dan memungkinkan perbandingan di seluruh modifikasi model berturut-turut; dan
+\item menghasilkan laporan otomatis yang berisi interpretasi narasi, tabel berformat APA, visualisasi tertanam, dan diagnostik validitas konstruk dalam dokumen HTML berformat dengan dukungan pemisah desimal yang dapat dikonfigurasi.
+\end{enumerate}
+
+\end{enumerate}
+
+\end{document}

@@ -1,11 +1,12 @@
 ## Test environments
-- local macOS (R 4.6.x)
+- local macOS (aarch64-apple-darwin23, R 4.6.1)
 - GitHub Actions (ubuntu-latest, windows-latest, macOS-latest)
+- win-builder (R-devel, R-release)
 
 ## R CMD check results
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
-## Notes
+## Notes on this release (0.1.1)
 - This release substantially extends the CFA/SEM module: multi-group CFA with
   configural/metric/scalar/strict invariance testing (including an automated
   all-levels comparison), latent growth modelling via `lavaan::growth()`, data
@@ -25,5 +26,3 @@
   `requireNamespace()` guards.
 - The file README.html is included in the GitHub repository for documentation purposes
   and is excluded from the CRAN build via .Rbuildignore.
-- Some packages listed in Imports are used conditionally in Shiny applications and
-  vignettes, which may not be detected by static code analysis.

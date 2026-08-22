@@ -1,0 +1,89 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[top=2.0cm, left=2.5cm, bottom=3.0cm, right=3.0cm]{geometry}
+\usepackage{times}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\setlength{\parindent}{3em}
+\setlength{\parskip}{0pt}
+\singlespacing
+
+\begin{document}
+
+\begin{center}
+\textbf{\large CLAIMS}\\[12pt]
+\textbf{projectLSA: Shiny Application for Latent Structure Analysis\\with a Graphical User Interface}
+\end{center}
+
+\vspace{12pt}
+
+\begin{enumerate}[leftmargin=3em, labelsep=1em, itemsep=12pt]
+
+\item A computer-implemented system for integrated latent structure analysis, comprising:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item a web-based graphical user interface built on the R programming language and the Shiny framework that enables users to perform latent structure analyses without writing programming code;
+\item a unified data input module that accepts multiple file formats including CSV, Excel, SPSS, and Stata data files, and provides interactive data preview and automatic variable type detection;
+\item a Latent Profile Analysis (LPA) module for identifying latent subgroups based on continuous indicator variables, utilizing the tidyLPA and mclust computational backends, supporting multiple variance-covariance structures, and providing automatic estimation of multiple mixture models with model comparison based on AIC, BIC, entropy, and log-likelihood;
+\item a Latent Class Analysis (LCA) module for identifying latent subgroups based on categorical indicator variables, supporting both standard LCA via the poLCA package and multilevel LCA via the glca package with hierarchical data structures;
+\item an Item Response Theory (IRT) module for fitting and evaluating unidimensional and multidimensional item response models including Rasch, 2PL, 3PL, GRM, GPCM, and PCM, providing interactive Item Characteristic Curves, Item Information Curves, Test Information Functions, and Expected A Posteriori factor scores;
+\item an Exploratory Factor Analysis (EFA) module for discovering latent factor structures, providing automated diagnostic testing including KMO and Bartlett's test, parallel analysis for factor number determination, and factor extraction with multiple rotation methods;
+\item a Confirmatory Factor Analysis (CFA) and Structural Equation Modeling (SEM) module for testing hypothesized measurement and structural models using the lavaan framework, supporting multiple estimators including ML, MLR, WLSMV, and ULS;
+\item a standardized model comparison framework that operates consistently across all analytical modules, providing sortable interactive fit index tables and interpretive guidance; and
+\item an automated reporting system that generates formatted HTML documents containing narrative interpretation, APA-formatted tables, and embedded visualizations.
+\end{enumerate}
+
+\item The system of claim 1, wherein the Confirmatory Factor Analysis and Structural Equation Modeling module further comprises:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item a model specification editor that accepts lavaan syntax for defining measurement models using the =\textasciitilde{} operator, structural regression paths using the \textasciitilde{} operator, and covariance specifications using the \textasciitilde{}\textasciitilde{} operator;
+\item automatic computation and interpretation of fit indices including Chi-square ($\chi^2$) with degrees of freedom and p-value, Root Mean Square Error of Approximation (RMSEA), Comparative Fit Index (CFI), Tucker-Lewis Index (TLI), Standardized Root Mean Square Residual (SRMR), Goodness-of-Fit Index (GFI), and Normed Fit Index (NFI), with evaluation against standard cut-off criteria and automatic interpretive labels;
+\item construct validity diagnostics including Average Variance Extracted (AVE), Composite Reliability (CR), and Heterotrait-Monotrait Ratio (HTMT) for assessing discriminant validity;
+\item a configurable decimal separator that applies globally to all numerical outputs including fit indices and path diagram edge labels, supporting both period and comma notation for international conventions; and
+\item fully customizable path diagram visualization using the semPlot and semptools packages, with 12 predefined color palettes, configurable node sizes, edge widths, layout algorithms, significance markers on path coefficients, and an embedded centered fit index summary box.
+\end{enumerate}
+
+\item The system of claim 1, wherein the standardized model comparison framework further comprises:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item sortable, interactive fit index tables generated using the DT package that present method-appropriate indices consistently across all analytical modules;
+\item a model history system in the CFA/SEM module that maintains a sequential record of all fitted models within a session, enabling users to compare fit indices across successive model modifications, add annotation notes to each model iteration, and navigate between model versions; and
+\item automatic model-type detection that distinguishes between CFA and SEM based on the presence of regression paths, adjusting output labels and report content accordingly.
+\end{enumerate}
+
+\item The system of claim 1, wherein the automated reporting system further comprises:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item an R Markdown-based report generator that produces formatted HTML documents with single line spacing and Times New Roman typography;
+\item automatically generated narrative text interpreting model fit based on standard cut-off criteria including Hu and Bentler (1999) guidelines;
+\item APA-formatted tables produced using the flextable package with configurable line spacing and padding;
+\item side-by-side embedded path diagrams showing initial and final models for visual comparison;
+\item construct validity diagnostics tables including AVE, CR, and HTMT matrices; and
+\item configurable decimal separator support for international conventions applied consistently throughout the document.
+\end{enumerate}
+
+\item The system of claim 1, wherein the web-based graphical user interface further comprises:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item a tabbed navigation system providing separate interfaces for each analytical module with a consistent layout pattern of input controls on a left-side panel and results displayed in a main content area;
+\item interactive data tables with sorting, filtering, and search capabilities for all tabular outputs;
+\item built-in example datasets that enable users to demonstrate and replicate analytical workflows without requiring external data;
+\item a homepage with citation information, package documentation, and donation support interface; and
+\item deployability on both local R environments and remote Shiny servers for institutional use, with a web-based version accessible without local installation.
+\end{enumerate}
+
+\item A computer-implemented method for conducting integrated latent structure analysis, comprising the steps of:
+\begin{enumerate}[label=\alph*., leftmargin=2em, itemsep=2pt]
+\item receiving a dataset through a web-based graphical user interface in one of a plurality of supported file formats including CSV, Excel, SPSS, and Stata;
+\item presenting the dataset in an interactive preview table with automatic variable type detection;
+\item receiving user input specifying one or more analytical methods to apply from a set comprising Latent Profile Analysis, Latent Class Analysis, Item Response Theory analysis, Exploratory Factor Analysis, and Confirmatory Factor Analysis/Structural Equation Modeling;
+\item estimating one or more statistical models based on the specified analytical method and user-defined parameters without requiring the user to write programming code;
+\item computing and displaying model fit indices in a standardized comparison table with interpretive guidance based on established criteria;
+\item generating interactive visualizations of the model results including profile plots, class probability plots, item characteristic curves, factor loading matrices, or path diagrams as appropriate to the selected method;
+\item maintaining a model history that records all fitted models within a session and enables comparison across successive model modifications; and
+\item generating an automated report containing narrative interpretation, APA-formatted tables, embedded visualizations, and construct validity diagnostics in a formatted HTML document with configurable decimal separator support.
+\end{enumerate}
+
+\end{enumerate}
+
+\end{document}

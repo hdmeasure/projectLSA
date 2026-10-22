@@ -111,6 +111,9 @@ for **projectLSA***.
 
 - Lavaan model editor with a built-in methodological guide.
 - Fit measures, loadings, factor scores, AVE/CR, and HTMT.
+- **Ordinal data option** for categorical estimators (WLSMV, DWLS, ULS,
+  …): indicators are modelled from polychoric correlations and
+  thresholds.
 - Modification indices with an editable model-comparison history.
 - **Multi-group CFA** with configural, metric, scalar, and strict
   invariance testing, plus a one-click automated all-levels comparison.

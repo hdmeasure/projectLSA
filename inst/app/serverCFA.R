@@ -1,3 +1,14 @@
+# Estimators that lavaan accepts together with `ordered =`. The ML family
+# (ML, MLM, MLMV, MLMVS, MLF, MLR) and GLS are continuous-data estimators.
+cfa_categorical_estimators <- c(
+  "WLS", "DWLS", "ULS", "PML", "WLSM", "WLSMV", "WLSMVS", "ULSM", "ULSMV", "ULSMVS"
+)
+
+# Estimator name as shown in tables and plot legends
+cfa_estimator_label <- function(estimator, ordered = NULL) {
+  if (length(ordered) > 0) paste0(estimator, " (ordinal)") else estimator
+}
+
 # ==== HELPER FUNCTIONS (GLOBAL IN SERVER) ====
 # CR AVE & HTMT ====
 calc_ave_cr <- function(fit) {
@@ -146,6 +157,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
             # Restore UI Inputs
             if (!is.null(res$input_state)) {
               updateSelectInput(session, "cfa_estimator", selected = res$input_state$cfa_estimator)
+              if (!is.null(res$input_state$cfa_ordered)) updateCheckboxInput(session, "cfa_ordered", value = isTRUE(res$input_state$cfa_ordered))
               updateSelectInput(session, "cfa_missing", selected = res$input_state$cfa_missing)
               updateCheckboxInput(session, "cfa_std_est", value = res$input_state$cfa_std_est)
               updateCheckboxInput(session, "htmt_opt", value = res$input_state$htmt_opt)
@@ -357,8 +369,29 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
   cfa_fit_list <- reactiveVal(list())
   cfa_current_id <- reactiveVal(NULL)
   cfa_model_counter <- reactiveVal(0)
+  # Indicators to declare as ordered categorical (NULL = treat as continuous).
+  # Only offered for estimators that lavaan can combine with `ordered`.
+  get_ordered_vars <- function() {
+    if (!isTRUE(input$cfa_ordered)) return(NULL)
+    if (!(input$cfa_estimator %in% cfa_categorical_estimators)) return(NULL)
+    vars <- input$cfa_ordered_vars
+    if (length(vars) == 0) vars <- input$selected_vars
+    intersect(vars, input$selected_vars)
+  }
+
+  output$cfa_ordered_vars_ui <- renderUI({
+    req(input$selected_vars)
+    shinyWidgets::pickerInput(
+      "cfa_ordered_vars", "Ordinal indicators:",
+      choices = input$selected_vars, selected = isolate(input$selected_vars),
+      multiple = TRUE, width = "100%",
+      options = list(`actions-box` = TRUE, `live-search` = TRUE, `selected-text-format` = "count > 3")
+    )
+  })
+
   run_lavaan <- function(model_text, data, estimator = "ML", missing = "listwise",
-                         mode = "standard", group = NULL, group_equal = NULL) {
+                         mode = "standard", group = NULL, group_equal = NULL,
+                         ordered = NULL) {
     tryCatch(
       {
         # Enforce group variable inclusion if MGCFA
@@ -380,12 +413,41 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
           missing = if (missing == "fiml") "fiml" else if (missing == "pairwise") "pairwise" else "listwise"
         )
 
+        # Ordinal indicators: declare them as ordered categorical so lavaan uses
+        # polychoric correlations and thresholds instead of Pearson correlations.
+        ordered_use <- NULL
+        if (length(ordered) > 0 && estimator %in% cfa_categorical_estimators) {
+          model_ov <- tryCatch(
+            lavaan::lavNames(lavaan::lavaanify(model_text), "ov"),
+            error = function(e) character(0)
+          )
+          ordered_use <- intersect(ordered, intersect(model_ov, names(data_to_use)))
+          if (length(ordered_use) == 0) ordered_use <- NULL
+        }
+        is_ordinal <- !is.null(ordered_use)
+        if (is_ordinal) {
+          args$ordered <- ordered_use
+          if (identical(args$missing, "fiml")) {
+            args$missing <- "pairwise"
+            showNotification(
+              "FIML is not available for ordinal indicators; pairwise deletion was used instead.",
+              type = "warning", duration = 8
+            )
+          }
+        }
+
         if (mode == "mgcfa" && !is.null(group) && group != "") {
           args$group <- group
           if (!is.null(group_equal) && group_equal != "configural") {
             # group_equal comes as a string like "loadings" or "loadings, intercepts"
-            args$group.equal <- strsplit(group_equal, ", ")[[1]]
+            ge <- strsplit(group_equal, ", ")[[1]]
+            # For ordinal indicators the scalar level constrains thresholds, not intercepts
+            if (is_ordinal) ge <- unique(sub("^intercepts$", "thresholds", ge))
+            args$group.equal <- ge
           }
+          # Theta parameterization puts every invariance level, including the residual
+          # constraint of strict invariance, on the same footing for ordinal data
+          if (is_ordinal) args$parameterization <- "theta"
         }
 
         do.call(lavaan_fun, args)
@@ -422,6 +484,21 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     # df_subset <- df_subset %>% mutate(across(everything(), as.numeric))
 
 
+    ord_vars <- get_ordered_vars()
+    if (length(ord_vars) > 0) {
+      n_cat <- vapply(df[ord_vars], function(x) length(unique(x[!is.na(x)])), numeric(1))
+      many <- names(n_cat)[n_cat > 10]
+      if (length(many) > 0) {
+        showNotification(
+          paste0(
+            "Declared ordinal but with more than 10 distinct values: ", paste(many, collapse = ", "),
+            ". A continuous estimator (e.g. MLR) may suit these indicators better."
+          ),
+          type = "warning", duration = 12
+        )
+      }
+    }
+
     showModal(modalDialog("Running CFA ...", footer = NULL))
 
     fit <- run_lavaan(
@@ -431,7 +508,8 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
       missing = input$cfa_missing,
       mode = input$cfa_analysis_mode,
       group = if (input$cfa_analysis_mode == "mgcfa") input$mgcfa_group_var else NULL,
-      group_equal = if (input$cfa_analysis_mode == "mgcfa") input$mgcfa_invariance else NULL
+      group_equal = if (input$cfa_analysis_mode == "mgcfa") input$mgcfa_invariance else NULL,
+      ordered = ord_vars
     )
 
     removeModal()
@@ -439,6 +517,12 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     if (is.null(fit)) {
       return()
     }
+
+    # Indicators lavaan actually treated as ordered categorical
+    ord_used <- tryCatch(
+      if (isTRUE(lavaan::lavInspect(fit, "categorical"))) lavaan::lavNames(fit, "ov.ord") else NULL,
+      error = function(e) NULL
+    )
 
     measures <- tryCatch(
       {
@@ -511,7 +595,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     RelSEM <- setNames(ave_cr$CR, rownames(ave_cr))
     HTMT <- tryCatch(
       {
-        calc_htmt(df, input$cfa_model_text)
+        calc_htmt(df, input$cfa_model_text, ordered = ord_used)
       },
       error = function(e) {
         NA
@@ -595,6 +679,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
       scoreCfa = as.data.frame(scoreCfa),
       note = auto_note,
       estimator = input$cfa_estimator,
+      ordered = ord_used,
       has_heywood = has_heywood,
       time = Sys.time()
     )
@@ -710,7 +795,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
       )
       data.frame(
         Model = x$id,
-        Estimator = ifelse(is.null(x$estimator), "Unknown", x$estimator),
+        Estimator = ifelse(is.null(x$estimator), "Unknown", cfa_estimator_label(x$estimator, x$ordered)),
         Note = ifelse(is.null(x$note) || x$note == "", "-", x$note),
         chisq = round(m["chisq"], 2),
         df = m["df"],
@@ -1837,7 +1922,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     fit_text_raw <- get_fit_text(m, input$fit_indices_selected, dec_sep = input$cfa_dec_sep)
     wrapped_fit <- paste(strwrap(paste0("Fit indices: ", fit_text_raw), width = 110), collapse = "\n")
 
-    estimator_text <- paste0("Estimator = ", input$cfa_estimator, " | Factors: ", paste(factor_names, collapse = ", "))
+    estimator_text <- paste0("Estimator = ", cfa_estimator_label(input$cfa_estimator, obj$ordered), " | Factors: ", paste(factor_names, collapse = ", "))
     sig_sign <- '*** : p ≤ 0.001", "** : p ≤ 0.01", "* : p ≤ 0.05'
 
     legend_text <- c(wrapped_fit, estimator_text, sig_sign)
@@ -1913,7 +1998,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     fit_text <- get_fit_text(m, selected, dec_sep = input$cfa_dec_sep)
 
     estimator_text <- paste0(
-      "Estimator = ", input$cfa_estimator,
+      "Estimator = ", cfa_estimator_label(input$cfa_estimator, obj$ordered),
       " | Factors: ", paste(factor_names, collapse = ", ")
     )
     sig_sign <- paste0(
@@ -2023,14 +2108,16 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
 
     showModal(modalDialog("Running Automated Invariance Testing (Configural -> Metric -> Scalar -> Strict)...", footer = NULL))
 
+    ord_vars <- get_ordered_vars()
+
     # 1. Configural
-    fit_config <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "configural")
+    fit_config <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "configural", ordered = ord_vars)
     # 2. Metric
-    fit_metric <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings")
+    fit_metric <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings", ordered = ord_vars)
     # 3. Scalar
-    fit_scalar <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings, intercepts")
+    fit_scalar <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings, intercepts", ordered = ord_vars)
     # 4. Strict
-    fit_strict <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings, intercepts, residuals")
+    fit_strict <- run_lavaan(model_text = input$cfa_model_text, data = df, estimator = input$cfa_estimator, missing = input$cfa_missing, mode = "mgcfa", group = input$mgcfa_group_var, group_equal = "loadings, intercepts, residuals", ordered = ord_vars)
 
     removeModal()
 
@@ -2137,6 +2224,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         cfa_aggregations = cfa_aggregations(),
         input_state = list(
           cfa_estimator = input$cfa_estimator,
+          cfa_ordered = input$cfa_ordered,
           cfa_missing = input$cfa_missing,
           cfa_std_est = input$cfa_std_est,
           htmt_opt = input$htmt_opt,
@@ -2331,6 +2419,14 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
            fit_text <- paste0(fit_text, "Modification Note: ", mod$note, "\n\n")
         }
         
+        fit_text <- paste0(fit_text, "Estimator: ", cfa_estimator_label(mod$estimator, mod$ordered), "\n")
+        if (length(mod$ordered) > 0) {
+          fit_text <- paste0(
+            fit_text,
+            "Indicators modelled as ordered categorical (polychoric correlations and thresholds): ",
+            paste(mod$ordered, collapse = ", "), "\n"
+          )
+        }
         fit_text <- paste0(fit_text, "EXACT FIT INDICES (MUST USE THESE VALUES FOR INTERPRETATION!):\n")
         if (!is.null(m)) {
            fit_text <- paste0(fit_text, 
@@ -2370,7 +2466,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         tags$ul(
           tags$li(tags$b("ML (Maximum Likelihood):"), " Default for continuous data with multivariate normality."),
           tags$li(tags$b("MLR (Robust ML):"), " Recommended for continuous data that violate normality assumptions (computes robust standard errors and scaled test statistics)."),
-          tags$li(tags$b("WLSMV (Weighted Least Squares Mean and Variance adjusted):"), " Best practice for ordinal or categorical data (e.g., Likert scales with < 5 points)."),
+          tags$li(tags$b("WLSMV (Weighted Least Squares Mean and Variance adjusted):"), " Best practice for ordinal or categorical data (e.g., Likert scales with < 5 points). With a categorical estimator, the option \"Treat indicators as ordinal\" declares the indicators as ordered categorical, so polychoric correlations and thresholds are used (DiStefano & Morgan, 2014)."),
           tags$li(tags$b("Other WLS/ULS variants:"), " Used for specific covariance structure requirements (see Kline, 2016).")
         ),
         tags$hr(),
@@ -2378,7 +2474,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         tags$p("Improper handling of missing data can bias parameter estimates:"),
         tags$ul(
           tags$li(tags$b("Listwise Deletion:"), " Default. Removes any row with a missing value. Valid only if data is Missing Completely at Random (MCAR). Can severely reduce statistical power."),
-          tags$li(tags$b("FIML (Full Information Maximum Likelihood):"), " Often the gold standard for Missing at Random (MAR) data. Uses all available data points without discarding cases (Enders, 2010)."),
+          tags$li(tags$b("FIML (Full Information Maximum Likelihood):"), " Often the gold standard for Missing at Random (MAR) data. Uses all available data points without discarding cases (Enders, 2010). Not available for ordinal indicators, for which pairwise deletion is used."),
           tags$li(tags$b("Pairwise Deletion:"), " Uses available pairs for correlation. Generally discouraged due to potential non-positive definite covariance matrices.")
         ),
         tags$hr(),

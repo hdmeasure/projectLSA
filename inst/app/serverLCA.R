@@ -1537,7 +1537,7 @@ output$export_lca_rds <- downloadHandler(
     workspace <- list(
       type = "projectLSA_workspace",
       module = "LCA",
-      version = "0.1.1",
+      version = "0.1.2",
       saved_at = Sys.time(),
       raw_data = data_source(),
       lca_models = lca_models(),

@@ -37,6 +37,22 @@ cfa_ui <- function(project) {
                                      "WLSM" = "WLSM", "WLSMVS" = "WLSMVS", "WLSMV" = "WLSMV", 
                                      "ULSM" = "ULSM", "ULSMVS" = "ULSMVS", "ULSMV" = "ULSMV"),
                          selected = "ML"),
+             # Ordinal-data option, offered only for estimators that lavaan can combine with `ordered`
+             conditionalPanel(
+               condition = "['WLS','DWLS','ULS','PML','WLSM','WLSMV','WLSMVS','ULSM','ULSMV','ULSMVS'].indexOf(input.cfa_estimator) > -1",
+               checkboxInput("cfa_ordered", "Treat indicators as ordinal (ordered categorical)", value = TRUE),
+               conditionalPanel(
+                 condition = "input.cfa_ordered",
+                 uiOutput("cfa_ordered_vars_ui"),
+                 tags$p(style = "font-size: 11px; color: #666; margin-top: -5px;",
+                        "Polychoric correlations and thresholds are used. Leave the list empty to treat all selected indicators as ordinal. FIML is not available for ordinal data; pairwise deletion is used.")
+               ),
+               conditionalPanel(
+                 condition = "!input.cfa_ordered",
+                 tags$p(style = "font-size: 11px; color: #b45309;",
+                        icon("exclamation-triangle"), " Indicators are treated as continuous. Tick the option above for Likert/ordinal items.")
+               )
+             ),
              selectInput("cfa_missing", "Missing data:",
                          choices = c("Listwise" = "listwise", "Pairwise" = "pairwise", "FIML" = "fiml"),
                          selected = "listwise"),

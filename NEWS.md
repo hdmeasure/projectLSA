@@ -1,3 +1,24 @@
+# projectLSA 0.1.2
+
+## CFA/SEM Module: Data Analysis Menu
+* The **estimator settings** of the CFA/SEM analysis menu now include an
+  **ordinal data option**. When a categorical estimator is selected (WLS, DWLS, ULS,
+  PML, WLSM, WLSMV, WLSMVS, ULSM, ULSMV, or ULSMVS), the indicators can be declared
+  as ordered categorical variables, so that the model is estimated from polychoric
+  correlations and thresholds. The option is switched on by default for these
+  estimators, all selected indicators are treated as ordinal unless a subset is
+  chosen, and it is hidden for continuous-data estimators (ML, MLR, ...).
+* Heterotrait-Monotrait ratios (HTMT) are computed from polychoric correlations when
+  the indicators are ordinal.
+* **Multi-group CFA** and the **Auto Invariance Test** support ordinal indicators: the
+  scalar level constrains thresholds, and all levels use the theta parameterization
+  so that configural, metric, scalar, and strict models are directly comparable.
+* With ordinal indicators, selecting FIML for missing data applies pairwise deletion.
+* The model comparison table, the path diagram legend, the HTML report, and the AI
+  assistant context state when a model was estimated with ordinal indicators, and the
+  Methodological Guide describes the new option.
+* Saved analysis sessions keep the ordinal-data setting.
+
 # projectLSA 0.1.1
 
 ## CFA/SEM Module (major update)

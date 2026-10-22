@@ -6,7 +6,15 @@
 ## R CMD check results
 0 errors | 0 warnings | 0 notes
 
-## Notes on this release (0.1.1)
+## Notes on this release (0.1.2)
+- This update extends the CFA/SEM analysis menu of the Shiny application with an
+  ordinal data option. For categorical estimators (e.g. WLSMV, DWLS) the indicators
+  can be declared as ordered categorical variables, so models are estimated from
+  polychoric correlations and thresholds; HTMT, multi-group invariance testing,
+  the HTML report, and the AI assistant context follow this setting.
+- No new dependencies were added.
+
+## Earlier notes (0.1.1)
 - This release substantially extends the CFA/SEM module: multi-group CFA with
   configural/metric/scalar/strict invariance testing (including an automated
   all-levels comparison), latent growth modelling via `lavaan::growth()`, data

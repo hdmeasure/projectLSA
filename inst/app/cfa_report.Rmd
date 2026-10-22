@@ -105,7 +105,7 @@ fmt <- function(x, digits = 3) {
 
 ## Model Fit Assessment
 
-This report presents the results of the `r ifelse(params$model_type == 'SEM', 'Structural Equation Modeling (SEM)', 'Confirmatory Factor Analysis (CFA)')`. The model was estimated using the `r params$fit_final@Options$estimator` estimator.
+This report presents the results of the `r ifelse(params$model_type == 'SEM', 'Structural Equation Modeling (SEM)', 'Confirmatory Factor Analysis (CFA)')`. The model was estimated using the `r params$fit_final@Options$estimator` estimator`r if (isTRUE(tryCatch(lavaan::lavInspect(params$fit_final, "categorical"), error = function(e) FALSE))) ", with the indicators treated as ordered categorical (ordinal) variables" else ""`.
 
 ```{r fit-measures}
 fit_summary <- fitMeasures(params$fit_final)

@@ -1086,7 +1086,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       workspace <- list(
         type = "projectLSA_workspace",
         module = "LPA",
-        version = "0.1.1",
+        version = "0.1.2",
         saved_at = Sys.time(),
         raw_data = data_user(),
         fitcompare = fitcompare(),

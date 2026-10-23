@@ -1,174 +1,127 @@
 ai_widget_ui <- function() {
-  absolutePanel(
-    id = "ai_floating_panel",
-    fixed = TRUE,
-    draggable = FALSE,
-    bottom = 20,
-    right = 20,
-    width = "auto",
-    height = "auto",
-    class = "floating-widget",
-    style = "z-index: 9999; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); background: white; border: 1px solid #ccc; display: flex; flex-direction: column; overflow: hidden;",
-
-    # Header
-    div(
-      id = "ai_widget_header",
-      style = "background: #2563eb; color: white; padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-top-left-radius: 8px; border-top-right-radius: 8px;",
-      tags$span(tags$img(src = "logoProjectLSA.png", style = "width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;"), " AI Assistant"),
-      tags$div(style = "display: flex; align-items: center; gap: 12px;",
-        actionButton("dock_ai_widget",
-          label = "", icon = icon("external-link-alt"), title = "View in Tab",
-          style = "background: transparent; border: none; color: white; box-shadow: none; padding: 0; font-size: 13px; line-height: 1;"
-        ),
-        actionButton("toggle_ai_widget",
-          label = "", icon = icon("chevron-up"),
-          style = "background: transparent; border: none; color: white; box-shadow: none; padding: 0; font-size: 13px; line-height: 1;"
+  # Shown on a tab while no API key has been entered
+  need_key <- function() {
+    conditionalPanel(
+      condition = "!output.ai_ready",
+      div(
+        class = "pl-ai-empty",
+        tags$img(src = "avatar_stiker.png", alt = ""),
+        tags$b("I need an API key first"),
+        tags$p("Add a model in the AI settings (top right). A free-tier provider is enough to start, and keys stay in this session only."),
+        tags$button(
+          type = "button", class = "btn btn-primary btn-sm", onclick = "plAiDrawer(true)",
+          icon("gear"), " Open AI settings"
         )
+      )
+    )
+  }
+  has_key <- "output.ai_ready"
+
+  absolutePanel(
+    id = "ai_floating_panel", fixed = TRUE, draggable = FALSE,
+    bottom = 20, right = 20, width = "auto", height = "auto",
+    class = "floating-widget pl-ai",
+
+    # Header: doubles as the launcher while the panel is collapsed
+    div(
+      id = "ai_widget_header", class = "pl-ai-head",
+      tags$span(
+        class = "pl-ai-title",
+        tags$img(src = "avatar_kepala.png", class = "pl-ai-avatar", alt = ""),
+        tags$span(tags$b("AI Assistant"), tags$small("Ask about your results"))
+      ),
+      tags$div(
+        class = "pl-ai-actions",
+        actionButton("toggle_ai_widget", label = "", icon = icon("chevron-up"),
+                     title = "Show or hide", class = "pl-ai-iconbtn")
       )
     ),
 
     # Body
     div(
-      id = "ai_widget_body_wrapper",
-      style = "display: none;", # Start minimized
+      id = "ai_widget_body_wrapper", style = "display: none;",
       div(
-        id = "ai_widget_body",
-        style = "width: 380px; height: 450px; display: flex; flex-direction: column; background: #fff; resize: both; overflow: auto; min-width: 300px; min-height: 300px;",
+        id = "ai_widget_body", class = "pl-ai-body",
+        uiOutput("ai_switcher_ui"),
         tabsetPanel(
-          id = "ai_widget_tabs",
-          type = "tabs",
+          id = "ai_widget_tabs", type = "pills", selected = "Ask AI",
 
-          # Chat Tab
-          tabPanel("Ask AI",
-                   conditionalPanel(
-                     condition = "input.ai_api_key == '' || input.ai_api_key == null",
-                     div(style = "padding: 20px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; color: #888;",
-                         tags$h4(icon("lock", class="fa-2x")),
-                         tags$p("Please configure your API Key in the Settings tab first.")
-                     )
-                   ),
-                   conditionalPanel(
-                     condition = "input.ai_api_key != '' && input.ai_api_key != null",
-                     div(style = "display: flex; flex-direction: column; height: 100%;",
-                         # Action row
-                         div(style = "display: flex; justify-content: flex-end; align-items: center; padding: 5px 10px; background: #f8f9fa; border-bottom: 1px solid #eee; flex-shrink: 0;",
-                             actionLink("ai_global_chat_clear", "Clear chat", style = "font-size: 12px; color: #dc3545; margin-right: auto;"),
-                             tags$button(
-                               class = "btn btn-default btn-xs", icon("download"), " Export HTML",
-                               onclick = "downloadAiChat()",
-                               style = "font-size: 12px;"
-                             )
-                         ),
-                         # History
-                         div(
-                           id = "ai_chat_history_container",
-                           style = "flex: 1; overflow-y: auto; padding: 15px; background: #ffffff; font-size: 13px;",
-                           uiOutput("ai_global_chat_history")
-                         ),
-                         # Input area
-                         div(
-                           style = "padding: 10px; border-top: 1px solid #ddd; background: #f8f9fa; display: flex; gap: 8px; align-items: center; flex-shrink: 0;",
-                           textInput("ai_global_chat_input", label = NULL, placeholder = "Type a question... (press Enter)", width = "100%"),
-                           actionButton("ai_global_chat_send", label = "", icon = icon("paper-plane"), class = "btn-primary")
-                         )
-                     )
-                   )
-          ),
-          
-          # Summary Tab
-          tabPanel("Create Summary",
-                   conditionalPanel(
-                     condition = "input.ai_api_key == '' || input.ai_api_key == null",
-                     div(style = "padding: 20px; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; color: #888;",
-                         tags$h4(icon("lock", class="fa-2x")),
-                         tags$p("Please configure your API Key in the Settings tab first.")
-                     )
-                   ),
-                   conditionalPanel(
-                     condition = "input.ai_api_key != '' && input.ai_api_key != null",
-                     div(style = "padding: 15px; height: 100%; display: flex; flex-direction: column; flex-grow: 1; background: #ffffff;",
-                         # Context Inputs
-                         bsCollapse(id = "ai_context_collapse",
-                           bsCollapsePanel("Research Context (Optional)", style = "info",
-                             textAreaInput("ai_context_text", "Theoretical background, hypotheses, etc.:", rows = 3, width = "100%", placeholder = "E.g., The goal of this research is to measure..."),
-                             fileInput("ai_context_file", "Or upload document (txt/pdf/docx)", accept = c(".txt", ".pdf", ".docx"), width = "100%")
-                           )
-                         ),
-                         
-                         # Inputs
-                         div(style = "display: flex; gap: 10px; margin-bottom: 10px;",
-                             div(style="flex:1;",
-                                 selectInput("ai_summary_format", "Format:", choices = c("Manuscript (Narrative)" = "Manuscript", "APA 7" = "APA 7", "Paragraph" = "Paragraf", "Bullet" = "Poin-poin", "Table" = "Tabel"), width="100%")
-                             ),
-                             div(style="flex:1;",
-                                 selectInput("ai_summary_lang", "Language:", choices = c("English", "Indonesian"), width="100%")
-                             )
-                         ),
-                         # Generate button
-                         actionButton("ai_global_summary_generate", "Generate Summary from Analysis Results", class = "btn-success", icon = icon("wand-magic-sparkles"), style = "width: 100%; margin-bottom: 10px; font-weight: bold;"),
-                         
-                         # Result tools
-                         div(style = "display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 5px;",
-                             tags$button(
-                               id = "copy_summary_btn", class = "btn btn-default btn-xs", icon("copy"), " Copy Text",
-                               onclick = "
-                                 let temp = $('<textarea>'); $('body').append(temp);
-                                 temp.val($('#ai_global_summary_result')[0].innerText).select();
-                                 document.execCommand('copy'); temp.remove();
-                                 let btn = $(this); let originalText = btn.html();
-                                 btn.html('<i class=\"fa fa-check\"></i> Copied!');
-                                 setTimeout(function() { btn.html(originalText); }, 2000);
-                               ",
-                               style = "font-size: 12px;"
-                             ),
-                             actionButton("ai_add_to_report", tagList(icon("file-medical"), " Add to Report"), class = "btn btn-default btn-xs", style = "font-size: 12px; padding: 1px 5px;")
-                         ),
-                         # Summary Output
-                         div(
-                           id = "ai_summary_result_container",
-                           style = "flex: 1; overflow-y: auto; border: 1px solid #ddd; padding: 12px; border-radius: 4px; background: #f8f9fa; font-size: 13px;",
-                           uiOutput("ai_global_summary_result")
-                         )
-                     )
-                   )
-          ),
-          
-          # Settings Tab
-          tabPanel("Settings",
-            icon = icon("cog"),
+          # ---- guide for the open tab (filled by the page; see projectlsa.js) ----
+          tabPanel(
+            "Guide", icon = icon("compass"),
             div(
-              style = "padding: 15px; text-align: left; height: 400px; display: flex; flex-direction: column; overflow-y: auto;",
-              tags$b(icon("cog"), " AI Assistant Setup"),
-              tags$hr(style = "margin-top: 10px; margin-bottom: 15px;"),
-              selectInput("ai_provider", "Provider:",
-                choices = c(
-                  "Google Gemini" = "gemini",
-                  "OpenAI" = "openai",
-                  "Groq" = "groq",
-                  "OpenRouter" = "openrouter"
+              class = "pl-ai-pane pl-ai-scroll pl-guide",
+              tags$img(src = "avatar_stiker.png", alt = "", class = "pl-guide-avatar"),
+              div(id = "pl-coach-msg", class = "pl-coach-msg", `aria-live` = "polite"),
+              div(id = "pl-coach-actions", class = "pl-coach-actions")
+            )
+          ),
+
+          # ---- chat ----
+          tabPanel(
+            "Ask AI", icon = icon("comments"),
+            need_key(),
+            conditionalPanel(
+              condition = has_key,
+              div(
+                class = "pl-ai-pane",
+                div(
+                  class = "pl-ai-bar",
+                  actionLink("ai_global_chat_clear", icon("trash-can"), title = "Clear the conversation", class = "pl-ai-tool"),
+                  tags$button(type = "button", class = "pl-ai-tool", title = "Export the conversation as HTML", icon("download"), onclick = "downloadAiChat()")
                 ),
-                width = "100%"
-              ),
-              textInput("ai_model", "Model:", value = "gemini-2.5-flash", placeholder = "e.g., gemini-2.5-flash", width = "100%"),
-              passwordInput("ai_api_key", "API Key:", placeholder = "Enter your API key here", width = "100%"),
-              div(
-                style = "display: flex; gap: 10px; align-items: center; margin-top: 10px;",
-                actionButton("test_ai_connection", "Test Connection", icon = icon("plug"), class = "btn-primary"),
-                uiOutput("ai_connection_status_ui")
-              ),
-              tags$hr(style = "margin-top: 15px; margin-bottom: 15px;"),
-              div(
-                style = "font-size: 11px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 5px;",
-                tags$b("How to get an API Key:"),
-                tags$ul(
-                  style = "padding-left: 15px; margin-bottom: 0;",
-                  tags$li("Gemini: ", tags$a(href = "https://aistudio.google.com/app/apikey", target = "_blank", "Google AI Studio")),
-                  tags$li("OpenAI: ", tags$a(href = "https://platform.openai.com/api-keys", target = "_blank", "OpenAI Platform")),
-                  tags$li("Groq: ", tags$a(href = "https://console.groq.com/keys", target = "_blank", "Groq Console")),
-                  tags$li("OpenRouter: ", tags$a(href = "https://openrouter.ai/keys", target = "_blank", "OpenRouter"))
+                div(id = "ai_chat_history_container", class = "pl-ai-history", uiOutput("ai_global_chat_history")),
+                div(
+                  class = "pl-ai-compose",
+                  textInput("ai_global_chat_input", label = NULL, placeholder = "Ask about your results... (Enter to send)", width = "100%"),
+                  actionButton("ai_global_chat_send", label = "", icon = icon("paper-plane"), class = "btn-primary")
                 )
-              ),
-              tags$small(style = "color: #666;", "Required to use the AI interpretation feature across all modules.")
+              )
+            )
+          ),
+
+          # ---- summary ----
+          tabPanel(
+            "Create Summary", icon = icon("wand-magic-sparkles"),
+            need_key(),
+            conditionalPanel(
+              condition = has_key,
+              div(
+                class = "pl-ai-pane pl-ai-scroll",
+                bsCollapse(
+                  id = "ai_context_collapse",
+                  bsCollapsePanel(
+                    "Add context (optional)", style = "default",
+                    textAreaInput("ai_context_text", "Theoretical background, hypotheses, ...", rows = 3, width = "100%",
+                                  placeholder = "E.g., The goal of this research is to measure..."),
+                    fileInput("ai_context_file", "Or upload a document (txt, pdf, docx)", accept = c(".txt", ".pdf", ".docx"), width = "100%")
+                  )
+                ),
+                div(
+                  class = "pl-ai-row",
+                  selectInput("ai_summary_format", "Format",
+                              choices = c("Manuscript (narrative)" = "Manuscript", "APA 7" = "APA 7", "Paragraph" = "Paragraf",
+                                          "Bullet points" = "Poin-poin", "Table" = "Tabel"), width = "100%"),
+                  selectInput("ai_summary_lang", "Language", choices = c("English", "Indonesian"), width = "100%")
+                ),
+                actionButton("ai_global_summary_generate", "Write the summary", icon = icon("wand-magic-sparkles"),
+                             class = "btn-primary pl-ai-wide"),
+                div(
+                  class = "pl-ai-bar",
+                  tags$button(
+                    id = "copy_summary_btn", type = "button", class = "pl-ai-tool", title = "Copy the text", icon("copy"),
+                    onclick = "
+                      let temp = $('<textarea>'); $('body').append(temp);
+                      temp.val($('#ai_global_summary_result')[0].innerText).select();
+                      document.execCommand('copy'); temp.remove();
+                      let btn = $(this); let originalText = btn.html();
+                      btn.html('<i class=\"fa fa-check\"></i>');
+                      setTimeout(function() { btn.html(originalText); }, 2000);"
+                  ),
+                  actionButton("ai_add_to_report", tagList(icon("file-medical"), " Add to report"), class = "pl-ai-tool pl-ai-tool-text")
+                ),
+                div(id = "ai_summary_result_container", class = "pl-ai-result", uiOutput("ai_global_summary_result"))
+              )
             )
           )
         )
@@ -268,6 +221,11 @@ ai_widget_ui <- function() {
       // EFA put their tabset at the top level of the module, so fall back to the
       // first visible tabset that is not part of the AI widget itself.
       function findHostTabset() {
+        // New HTML shell: the module's tabset lives in .pl-stage (its own tab strip is hidden)
+        let shellNav = $('.pl-stage .tabbable > ul.nav').first();
+        if (shellNav.length) {
+          return {navTabs: shellNav, tabContent: shellNav.parent().children('.tab-content').first(), shell: true};
+        }
         let candidates = $('.col-sm-9:visible').filter(function() {
           return $(this).find('.nav-tabs').length > 0;
         });
@@ -294,8 +252,14 @@ ai_widget_ui <- function() {
           let tabId = 'ai_assistant_docked_tab_' + Date.now();
           aiBody.attr('data-docked-tab-id', tabId);
 
-          navTabs.append('<li><a href=\"#' + tabId + '\" data-toggle=\"tab\">AI Assistant <span class=\"undock-ai-btn\" style=\"margin-left:8px;cursor:pointer;color:#888;\" title=\"Float Assistant\"><i class=\"fa fa-window-restore\"></i></span></a></li>');
-          tabContent.append('<div class=\"tab-pane\" id=\"' + tabId + '\" style=\"padding-top: 15px;\"></div>');
+          if (host.shell) {
+            navTabs.append('<li><a href=\"#' + tabId + '\" data-toggle=\"tab\" data-value=\"' + tabId + '\">AI Assistant</a></li>');
+            $('#pl-subnav').append('<button type=\"button\" class=\"pl-ai-entry\" data-tab=\"' + tabId + '\" data-title=\"AI Assistant\" data-sub=\"Ask about your results or draft a summary.\"><i class=\"fa-solid fa-wand-magic-sparkles\"></i><span>AI Assistant</span></button>');
+            tabContent.append('<div class=\"tab-pane\" id=\"' + tabId + '\" data-value=\"' + tabId + '\"><div style=\"margin-bottom:10px;\"><button type=\"button\" class=\"btn btn-default btn-sm undock-ai-btn\"><i class=\"fa fa-window-restore\"></i> Float assistant</button></div></div>');
+          } else {
+            navTabs.append('<li><a href=\"#' + tabId + '\" data-toggle=\"tab\">AI Assistant <span class=\"undock-ai-btn\" style=\"margin-left:8px;cursor:pointer;color:#888;\" title=\"Float Assistant\"><i class=\"fa fa-window-restore\"></i></span></a></li>');
+            tabContent.append('<div class=\"tab-pane\" id=\"' + tabId + '\" style=\"padding-top: 15px;\"></div>');
+          }
 
           aiBody.css({
              'width': '100%',
@@ -320,8 +284,8 @@ ai_widget_ui <- function() {
         let aiBody = $('#ai_widget_body');
 
         aiBody.css({
-           'width': '380px',
-           'height': '450px',
+           'width': '410px',
+           'height': '560px',
            'resize': 'both',
            'border': 'none'
         });
@@ -333,11 +297,14 @@ ai_widget_ui <- function() {
         if (tabId) {
            $('a[href=\"#' + tabId + '\"]').parent('li').remove();
            $('#' + tabId).remove();
+           $('.pl-ai-entry[data-tab=\"' + tabId + '\"]').remove();
         }
 
         // Go back to the first tab of the host module
         let host = findHostTabset();
-        if (host.navTabs.length) {
+        if (host.shell) {
+            $('.pl-subnav button[data-tab]').first().click();
+        } else if (host.navTabs.length) {
             host.navTabs.find('li:first-child a').tab('show');
         }
       });

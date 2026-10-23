@@ -38,3 +38,32 @@ session_report_dir <- function(session, module) {
 
   list(prefix = prefix, path = path)
 }
+
+# ==== Word (.docx) report ====
+# Renders one of the *_report_word.Rmd templates into a Word file with the APA 7 reference
+# document. `params` are the template parameters; the helper files and the figure folder are
+# added here. Returns the path of the .docx, or stops with the rendering error.
+find_app_file <- function(rel) {
+  if (file.exists(rel)) return(normalizePath(rel))
+  p <- file.path(system.file("app", package = "projectLSA"), rel)
+  if (file.exists(p)) p else stop("Missing report file: ", rel)
+}
+
+render_word_report <- function(template, params, out_file, workdir) {
+  dir.create(workdir, showWarnings = FALSE, recursive = TRUE)
+  tpl <- file.path(workdir, basename(template))
+  file.copy(find_app_file(template), tpl, overwrite = TRUE)
+  helpers <- file.path(workdir, "helpers.R")
+  writeLines(c(readLines(find_app_file("report_refs.R"), warn = FALSE), "", readLines(find_app_file("report_word.R"), warn = FALSE)), helpers, useBytes = TRUE)
+  figdir <- file.path(workdir, "figures")
+  unlink(figdir, recursive = TRUE)
+  ref <- find_app_file(file.path("templates", "apa_reference.docx"))
+  rmarkdown::render(
+    tpl,
+    output_format = rmarkdown::word_document(reference_docx = ref, keep_md = nzchar(Sys.getenv("PL_KEEP_MD"))),
+    output_file = out_file, quiet = TRUE,
+    params = c(list(helpers = helpers, figdir = figdir), params),
+    envir = new.env(parent = globalenv())
+  )
+  out_file
+}

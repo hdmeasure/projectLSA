@@ -1,6 +1,15 @@
 # serverAIWidget.R
 
-server_ai_widget <- function(input, output, session, ai_context) {
+# Answer text -> HTML for a chat bubble (escaped, line breaks kept), with a note on
+# which model answered and whether a backup was needed.
+ai_answer_html <- function(r) {
+  if (!isTRUE(r$ok)) return(list(ok = FALSE, html = htmltools::htmlEscape(r$message)))
+  via <- paste0("via ", htmltools::htmlEscape(r$via$provider), " \u00B7 ", htmltools::htmlEscape(r$via$model),
+                if (isTRUE(r$fallback)) " (backup model)" else "")
+  list(ok = TRUE, html = paste0(gsub("\n", "<br>", htmltools::htmlEscape(r$text)), "<div class='ai-via'>", via, "</div>"))
+}
+
+server_ai_widget <- function(input, output, session, ai_context, ai_state) {
   
   # Chat History State
   ai_chat_history <- reactiveVal(character(0))
@@ -12,16 +21,16 @@ server_ai_widget <- function(input, output, session, ai_context) {
   output$ai_global_chat_history <- renderUI({
     hist <- ai_chat_history()
     if (length(hist) == 0) {
-      return(HTML("<div style='color: #888; text-align: center; margin-top: 20px;'>No conversation yet.</div>"))
+      return(HTML("<div class='ai-placeholder'>No conversation yet. Ask me anything about your current results.</div>"))
     }
-    HTML(paste(hist, collapse = "<br><br>"))
+    HTML(paste(hist, collapse = ""))
   })
   
   # Render Summary
   output$ai_global_summary_result <- renderUI({
     res <- ai_summary_res()
     if (res == "") {
-      return(HTML("<div style='color: #888; text-align: center;'>The summary of your analysis results will appear here.</div>"))
+      return(HTML("<div class='ai-placeholder'>Your summary will appear here.</div>"))
     }
     HTML(res)
   })
@@ -36,14 +45,14 @@ server_ai_widget <- function(input, output, session, ai_context) {
     
     # Add User message
     current_chat <- ai_chat_history()
-    user_msg <- paste0("<b>You:</b><br>", htmltools::htmlEscape(prompt))
+    user_msg <- paste0("<div class='ai-bubble ai-me'>", gsub("\n", "<br>", htmltools::htmlEscape(prompt)), "</div>")
     current_chat <- c(current_chat, user_msg)
     ai_chat_history(current_chat)
     
     session$sendCustomMessage("scroll_ai_chat", "scroll")
     
     # We could show a thinking indicator or just append it
-    current_chat <- c(current_chat, "<div id='ai_thinking' style='color:#666;'><i>AI is thinking...</i></div>")
+    current_chat <- c(current_chat, "<div id='ai_thinking' class='ai-bubble ai-bot ai-typing'><span></span><span></span><span></span></div>")
     ai_chat_history(current_chat)
     session$sendCustomMessage("scroll_ai_chat", "scroll")
     
@@ -54,18 +63,17 @@ server_ai_widget <- function(input, output, session, ai_context) {
     
     # Call AI
     tryCatch({
-      response <- ask_ai(full_prompt, input$ai_provider, input$ai_model, input$ai_api_key)
-      response_html <- gsub("\n", "<br>", response)
-      
+      ans <- ai_answer_html(ai_ask_state(ai_state, full_prompt))
+
       # Remove thinking and add response
       current_chat <- current_chat[-length(current_chat)]
-      ai_msg <- paste0("<b>AI:</b><br>", response_html)
+      ai_msg <- paste0("<div class='ai-bubble ai-bot", if (!ans$ok) " ai-error", "'>", ans$html, "</div>")
       current_chat <- c(current_chat, ai_msg)
       ai_chat_history(current_chat)
       
     }, error = function(e) {
       current_chat <- current_chat[-length(current_chat)]
-      err_msg <- paste0("<b>AI Error:</b><br><span style='color:red;'>", e$message, "</span>")
+      err_msg <- paste0("<div class='ai-bubble ai-bot ai-error'>", htmltools::htmlEscape(e$message), "</div>")
       current_chat <- c(current_chat, err_msg)
       ai_chat_history(current_chat)
     })
@@ -153,9 +161,8 @@ server_ai_widget <- function(input, output, session, ai_context) {
     )
     
     tryCatch({
-      response <- ask_ai(prompt, input$ai_provider, input$ai_model, input$ai_api_key)
-      response_html <- gsub("\n", "<br>", response)
-      ai_summary_res(response_html)
+      ans <- ai_answer_html(ai_ask_state(ai_state, prompt))
+      ai_summary_res(if (ans$ok) ans$html else paste0("<span style='color:#c4515a;'>", ans$html, "</span>"))
     }, error = function(e) {
       ai_summary_res(paste0("<span style='color:red;'>Error: ", e$message, "</span>"))
     })
@@ -172,23 +179,4 @@ server_ai_widget <- function(input, output, session, ai_context) {
     }
   })
 
-  
-  # Save API Key from Widget
-  observeEvent(input$save_ai_widget_api_key_chat, {
-    key <- trimws(input$ai_widget_api_key_chat)
-    if (key != "") {
-      updateSelectInput(session, "ai_provider", selected = input$ai_widget_provider_chat)
-      updateTextInput(session, "ai_model", value = input$ai_widget_model_chat)
-      updateTextInput(session, "ai_api_key", value = key)
-    }
-  })
-  
-  observeEvent(input$save_ai_widget_api_key_sum, {
-    key <- trimws(input$ai_widget_api_key_sum)
-    if (key != "") {
-      updateSelectInput(session, "ai_provider", selected = input$ai_widget_provider_sum)
-      updateTextInput(session, "ai_model", value = input$ai_widget_model_sum)
-      updateTextInput(session, "ai_api_key", value = key)
-    }
-  })
 }

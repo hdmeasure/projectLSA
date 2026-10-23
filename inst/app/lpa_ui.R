@@ -1,13 +1,13 @@
 # Fungsi untuk menu Siswa
 lpa_ui <- function(project) {
-  tabsetPanel(
-    id = "main_tab_lpa",
+  tabs <- pl_tabs(
+    "main_tab_lpa",
     
     # --- TAB 1: Prepare Data & Model ----
     tabPanel(
       title = tagList(icon("upload"), "Prepare Data & Model"),
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 3,
           # Tombol kembali ke halaman utama
             actionButton("go_home",
@@ -57,7 +57,7 @@ lpa_ui <- function(project) {
 
 
         ),
-        mainPanel(
+        pl_main(
           width = 9,
           
           h5(icon("table"), "Data Preview"),
@@ -79,7 +79,7 @@ lpa_ui <- function(project) {
       
       column(12,
         div(
-          style = "text-align:center;",  # pusatkan kontainer
+          style = "text-align:left;",  # pusatkan kontainer
           div(
             style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
             
@@ -115,14 +115,13 @@ lpa_ui <- function(project) {
                     "Significant results favor the k-profile model over the k−1 model.")
           )
         ),
-      column(3, #h5(icon("chart-bar"), "BIC Comparison"), 
-             plotOutput("fit_bic"), height = "40px"),
-      column(3, #h5(icon("chart-bar"), "AIC Comparison"), 
-             plotOutput("fit_aic"),height = "40px"),
-      column(3, #h5(icon("chart-bar"), "Entropy Comparison"), 
-             plotOutput("fit_entropy"),height = "40px"),
-      column(3, #h5(icon("chart-bar"), "Min. Class Size Comparison"), 
-             plotOutput("fit_class_size"),height = "40px"),
+      column(12, tags$div(
+        class = "pl-two pl-two-flat",
+        tags$section(class = "pl-flat", plotOutput("fit_bic", height = "240px")),
+        tags$section(class = "pl-flat", plotOutput("fit_aic", height = "240px")),
+        tags$section(class = "pl-flat", plotOutput("fit_entropy", height = "240px")),
+        tags$section(class = "pl-flat", plotOutput("fit_class_size", height = "240px"))
+      )),
       br(),br(), br()
       )
       
@@ -131,8 +130,8 @@ lpa_ui <- function(project) {
     # --- TAB 3: Best Model ----
     tabPanel(
       title = tagList(icon("star"), "Best Model"),
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 3, 
           selectInput(
             "model_type", 
@@ -148,90 +147,23 @@ lpa_ui <- function(project) {
           numericInput("best_k", label = "Select the Best Number of Profiles:",value = 3, min = 1),
           uiOutput("profile_name_inputs")
         ),
-        mainPanel(
-          width = 9, 
-          br(),
-    
-          h5(icon("project-diagram"), "Profile Plot of the Best Model"),
-          downloadButton("download_plot_best_LPA", "Download Plot Best Model (.png)"),
-          plotOutput("best_model_plot", height = "450px"),
-          br(),
-          
-          div(
-            style = "text-align:center;",  # pusatkan kontainer
-            div(
-              style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
-              h5(icon("info-circle"), "Estimated Profile Parameters: Class Size & Variabel Means (Variances)"), 
-              DTOutput("summary_table") 
-              )
-          )
+        pl_main(
+          width = 9,
+          tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", icon("project-diagram"), " Profile plot of the best model"),
+                       plotOutput("best_model_plot", height = "340px")),
+          tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", icon("table"), " Estimated profile parameters: size and variable means (variances)"),
+                       DTOutput("summary_table"))
         )
       )
     ),
     
-    # --- TAB 4: Summary & Report ----
-    tabPanel(
-      title = tagList(icon("file-alt"), "Summary & Report"),
-      h4("Profile Classification Data"),
-      DTOutput("profile_table"),
-      br(),
-      column(12,
-        h4("Compare Profiles"),
-        column(3, uiOutput("var_x_ui")),
-        column(3, uiOutput("var_y_ui")),
-        column(3,
-               selectInput(
-                 "plot_type", "Plot Type:",
-                 choices = c("Line" = "line", "Bar" = "bar"),
-                 selected = "bar"
-               )
-        ),
-        column(3,
-               checkboxInput(
-                 "check_anova",
-                 label = "Compare Profiles",
-                 value = FALSE
-               )
-        )
-      ),
-      br(),
-      # =========================
-      # ROW 2: MAIN OUTPUT
-      # =========================
-      column(12,
-        column(6, plotOutput("cross_latent", height = "420px")),
-        column(6, uiOutput("anova_lpa_ui")),
-        br()
-      ),
-      column(12,
-             h4("Explore Other Variables by Profile"),
-             checkboxInput(
-               "crosstab_result",
-               label = "Explore variable",
-               value = FALSE
-             ),
-             column(12, uiOutput("crosstab_ui")),
-             br(),
-             br(),
-             br()
-      )
-    ),
+    # --- Follow-up analyses: classification quality, comparisons, cross-tabs, predictors, export ----
+    followup_tabs("lpa", "profile"),
 
     # --- Report Preview ----
     tabPanel(
-      title = tagList(icon("file-alt"), "Report Preview"),
-      column(
-        12,
-        br(),
-        div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
-            actionButton("lpa_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
-            downloadButton("download_report_lpa", "Download HTML Report", class = "btn btn-primary")
-        ),
-        div(
-          style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
-          uiOutput("lpa_report_preview_frame")
-        )
-      )
+      title = tagList(icon("file-lines"), "Report"),
+      pl_report_tab("lpa", "lpa_generate_preview", "download_report_lpa", "lpa_report_preview_frame")
     ),
 
     tabPanel(
@@ -296,4 +228,5 @@ lpa_ui <- function(project) {
       )
     )
   )
+  list(controls = NULL, nav = tabs$nav, stage = tabs$stage)
 }

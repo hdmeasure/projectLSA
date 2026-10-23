@@ -5,6 +5,7 @@
 #'
 #' @import shiny
 #' @importFrom colourpicker colourInput
+#' @importFrom curl new_handle
 #' @importFrom data.table data.table
 #' @importFrom dplyr select
 #' @importFrom DT datatable
@@ -13,7 +14,6 @@
 #' @importFrom ggplot2 ggplot
 #' @importFrom glca glca
 #' @importFrom haven read_sav
-#' @importFrom httr POST
 #' @importFrom jsonlite fromJSON
 #' @importFrom kableExtra kbl
 #' @importFrom knitr knit
@@ -21,6 +21,7 @@
 #' @importFrom magick image_read
 #' @importFrom mclust Mclust
 #' @importFrom mirt mirt
+#' @importFrom nnet multinom
 #' @importFrom officer read_docx
 #' @importFrom plotly plot_ly
 #' @importFrom poLCA poLCA

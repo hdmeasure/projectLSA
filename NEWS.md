@@ -1,4 +1,45 @@
-# projectLSA 0.1.2
+# projectLSA 0.2.0
+
+## Tab guide
+* Once an analysis has results, the project avatar offers to explain the tab you are looking at:
+  what to look at, what it means and what would be a warning sign. The offer appears in every
+  method; the explanation is written by the AI assistant from your own results, and when no model
+  is set up yet the avatar asks you to add an API key in the AI settings.
+
+## Reports
+* Every method can export a **Word (.docx) report** with the tables, the figures produced by the
+  analysis, in-text citations and a reference list in APA 7 format (software, methods and the
+  works used to judge the results). The report form has three short parts: objectives, method
+  (filled from the analysis you ran) and results with interpretation; the AI assistant can draft
+  them following plain scientific style and cites only listed works.
+
+## A new HTML interface
+* The whole application has a new, light and clean interface with soft animations and hover
+  effects. One shared layout is used by every method, so screens look and behave alike.
+* **Navigation follows where you are.** On the home screen the sidebar lists the analysis
+  methods; inside a method the views (for example Prepare Data & Model, Fit Model Comparison,
+  Report) are tabs along the top, with a link back to all methods and a switch to another method.
+  In the CFA/SEM module the Path Plot tab replaces the left panel with the plot settings.
+* **Room for your data and plots.** The sidebar folds to an icon rail (each icon shows its name
+  when you point at it), the control panel of the CFA/SEM module can be hidden, and the options
+  panel of every view can be folded away with the handle on its edge.
+* The home screen explains where each method fits on a two-by-two map: what you want to
+  uncover (groups or a score) against what you measured (continuous or categorical).
+* The **decimal separator** (point or comma) is one switch at the top right and applies to the
+  whole application and to the reports.
+* Tables look like a spreadsheet (thin grid, tight rows, grey header), button and text colours
+  were checked for contrast, and drop-down lists are drawn above every panel so that all options
+  can be clicked. Model-comparison plots (AIC, BIC, entropy, class size) share one clean style.
+* While an analysis runs, the project avatar blinks and waves; the same avatar appears in the AI
+  assistant and in progress dialogs. Tables, dialogs, notifications and charts share one style.
+* Moving between methods keeps each method's results; a method is no longer started again
+  every time it is opened.
+
+## CFA/SEM Module: Path diagram settings
+* The path-diagram settings are grouped by purpose: **Show** (scope, estimates, residuals,
+  fit indices in the legend), **Layout** (style, layout, rotation, general factor, curved paths,
+  split layout), **Size** (canvas, nodes, labels, lines) and **Colors**. The download button
+  sits in a toolbar above the diagram.
 
 ## CFA/SEM Module: Data Analysis Menu
 * The **estimator settings** of the CFA/SEM analysis menu now include an
@@ -18,6 +59,32 @@
   assistant context state when a model was estimated with ordinal indicators, and the
   Methodological Guide describes the new option.
 * Saved analysis sessions keep the ordinal-data setting.
+
+## AI settings and assistant
+* **AI settings moved to the top right** and now manage several models at once. Add models
+  from Google Gemini, Groq, OpenRouter, Cerebras and Mistral (free tiers offered by the
+  providers), OpenAI and xAI Grok (paid), or any OpenAI-compatible server such as Ollama or
+  LM Studio.
+* **Automatic mode** uses your first model and moves to the next one when a quota runs out, a
+  key is rejected, a model is missing or a service is down; the first model is used again once
+  it has recovered. **Single mode** uses only the model you marked as current.
+* **Test all models together**: every configured model is tested at the same time, and each
+  shows whether it answered and how fast.
+* **Switch the current model** from the assistant at any moment, reorder models, switch them
+  off, and **edit a model's name, label or key** in place (for example when a provider
+  releases a newer version).
+* **Load models from provider** lists what a key can use, so model names do not go stale.
+* Keys stay in the running session only. Answers show which model produced them and whether a
+  backup model was used.
+
+## Report builder
+* The Report tab of every method (CFA/SEM, EFA, LTA, LPA, LCA) has a form with title, authors,
+  background, objectives, method, interpretation of the results, conclusion, and limitations.
+  Each part has **Write with AI**, which drafts it from the method's results or polishes what
+  you wrote, and one button drafts every empty part. The text appears in the HTML report.
+
+## Other
+* `curl` is now used for the AI requests, replacing `httr`.
 
 # projectLSA 0.1.1
 

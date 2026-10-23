@@ -1,0 +1,56 @@
+---
+output: word_document
+params:
+  helpers: ""
+  figdir: ""
+  dec: "."
+  fit_compare: NA
+  best_k: NA
+  profile_plot: NA
+  fit_plots: NA
+  summary_tbl: NA
+  selected_vars: NA
+  console_out: NA
+  ai_summary: ""
+  notes: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+source(params$helpers)
+w_init(params$dec, params$figdir)
+nt <- params$notes
+```
+
+```{r front, results='asis'}
+w_cover(nt, "Latent Profile Analysis Report")
+w_notes(nt, c("objectives"))
+
+w_h("Method", 1)
+mt <- if (w_has(nt, "method")) nt$method else method_text("lpa", list(vars = params$selected_vars, k = params$best_k))
+w_user(mt)
+```
+
+```{r results, results='asis'}
+w_h("Results", 1)
+w_h("Model Fit Comparison", 2)
+w_p(paste0("Models were compared on the information criteria (lower AIC and BIC are better), entropy (values of .80 or higher indicate clear separation), the size of the smallest profile and the bootstrap likelihood ratio test, together with how well the profiles can be interpreted ", cite("nylund2007", "masyn2013"), "."))
+fc <- params$fit_compare
+if (is.data.frame(fc) && nrow(fc) > 0) {
+  w_table(fc, "Fit statistics of the estimated profile models", digits = 3,
+          note = "AIC = Akaike information criterion; BIC = Bayesian information criterion; BLRT = bootstrap likelihood ratio test.")
+}
+fp <- params$fit_plots
+if (is.list(fp) && !inherits(fp, "ggplot")) for (n in names(fp)) w_figure(fp[[n]] + ggplot2::labs(title = NULL, subtitle = NULL), paste0(n, " across the number of profiles"), width = 6.5, height = 3.8)
+
+w_h("Profile Plot", 2)
+w_figure(if (inherits(params$profile_plot, "ggplot")) params$profile_plot else NULL,
+         paste0("Estimated profiles of the ", params$best_k, "-profile solution"), width = 6.5, height = 4.4)
+st <- params$summary_tbl
+if (is.data.frame(st) && nrow(st) > 0) { w_h("Estimated Profile Parameters", 2); w_table(st, "Estimated parameters of each profile", digits = 3) }
+
+w_notes(nt, c("results"))
+w_ai(params$ai_summary)
+w_console(params$console_out)
+w_refs()
+```

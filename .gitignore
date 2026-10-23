@@ -19,3 +19,5 @@ rsconnect
 *.aux
 *.log
 *.out
+.claude
+*.tar.gz

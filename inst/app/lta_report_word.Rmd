@@ -1,0 +1,50 @@
+---
+output: word_document
+params:
+  helpers: ""
+  figdir: ""
+  dec: "."
+  lta_res: NA
+  console_out: NA
+  ai_summary: ""
+  notes: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+source(params$helpers)
+w_init(params$dec, params$figdir)
+nt <- params$notes
+res <- params$lta_res
+if (identical(res, NA)) res <- NULL
+```
+
+```{r body, results='asis'}
+w_cover(nt, "Latent Trait (IRT) Analysis Report")
+w_notes(nt, c("objectives"))
+
+w_h("Method", 1)
+w_user(if (w_has(nt, "method")) nt$method else method_text("lta", list(res = res)))
+
+w_h("Results", 1)
+if (is.null(res)) {
+  w_p("No LTA / IRT results are available.")
+} else {
+  cfs <- tryCatch(coef(res, IRTpars = TRUE, simplify = TRUE), error = function(e) NULL)
+  if (!is.null(cfs$items)) {
+    w_h("Item Parameters", 2)
+    it <- as.data.frame(cfs$items); it <- data.frame(Item = rownames(it), it, check.names = FALSE, row.names = NULL)
+    w_table(it, "Item parameters of the estimated IRT model", digits = 3,
+            note = "a = discrimination; b = difficulty or threshold; g and u = lower and upper asymptotes.")
+  }
+  w_h("Item Characteristic Curves", 2)
+  w_figure(function() print(plot(res, type = "trace")), "Trace lines of the items", width = 6.5, height = 5)
+  w_h("Item Information", 2)
+  w_figure(function() print(plot(res, type = "info")), "Item information curves", width = 6.5, height = 4.5)
+}
+
+w_notes(nt, c("results"))
+w_ai(params$ai_summary)
+w_console(params$console_out)
+w_refs()
+```

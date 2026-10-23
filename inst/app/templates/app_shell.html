@@ -1,0 +1,90 @@
+<!-- projectLSA - application shell (plain HTML), shown for every module.
+     Three slots are filled by htmlTemplate() in app.R: subnav (the views of the
+     active module), controls (an optional persistent control panel) and stage
+     (the module itself). Do not write double curly braces inside comments: the
+     template engine would try to evaluate them. -->
+<div class="pl-app" id="pl-app" data-module="home">
+
+  <aside class="pl-side-nav">
+    <div class="pl-brand" data-go="home" role="button" tabindex="0" title="Home">
+      <span class="pl-logo"><img src="logoProjectLSA.png" alt="projectLSA logo"></span>
+      <div><b>projectLSA</b><span>Latent Structure Analysis</span></div>
+    </div>
+
+    <nav class="pl-nav" aria-label="Methods">
+      <div class="pl-nav-group">Mixture models</div>
+      <a href="#" data-go="lpa" title="LPA - Latent Profile Analysis"><i class="fa-solid fa-chart-simple"></i><span>LPA &middot; Profiles</span></a>
+      <a href="#" data-go="lca" title="LCA - Latent Class Analysis"><i class="fa-solid fa-layer-group"></i><span>LCA &middot; Classes</span></a>
+
+      <div class="pl-nav-group">Latent traits</div>
+      <a href="#" data-go="lta" title="LTA - Latent Trait / IRT"><i class="fa-solid fa-brain"></i><span>LTA &middot; IRT</span></a>
+
+      <div class="pl-nav-group">Factor analysis</div>
+      <a href="#" data-go="efa" title="EFA - Exploratory Factor Analysis"><i class="fa-solid fa-sitemap"></i><span>EFA &middot; Exploratory</span></a>
+      <a href="#" data-go="cfa" title="CFA / SEM"><i class="fa-solid fa-diagram-project"></i><span>CFA / SEM</span></a>
+    </nav>
+
+  </aside>
+
+  <header class="pl-topbar">
+    <button type="button" id="pl-collapse" class="pl-iconbtn" title="Collapse or expand the sidebar" aria-label="Toggle sidebar"><i class="fa-solid fa-bars"></i></button>
+    <a href="#" class="pl-homebtn" data-go="home" title="Back to all methods"><i class="fa-solid fa-arrow-left"></i><span>All methods</span></a>
+    <div class="pl-modmenu">
+      <button type="button" id="pl-modbtn" class="pl-chip" aria-haspopup="true" aria-expanded="false" title="Switch method">
+        <i class="fa-solid fa-sparkles"></i><span id="pl-chip-text">Home</span><i class="fa-solid fa-chevron-down pl-caret"></i>
+      </button>
+      <div class="pl-modlist" role="menu">
+        <a href="#" role="menuitem" data-go="lpa"><i class="fa-solid fa-chart-simple"></i> LPA &middot; Latent Profile</a>
+        <a href="#" role="menuitem" data-go="lca"><i class="fa-solid fa-layer-group"></i> LCA &middot; Latent Class</a>
+        <a href="#" role="menuitem" data-go="lta"><i class="fa-solid fa-brain"></i> LTA &middot; Latent Trait / IRT</a>
+        <a href="#" role="menuitem" data-go="efa"><i class="fa-solid fa-sitemap"></i> EFA &middot; Exploratory</a>
+        <a href="#" role="menuitem" data-go="cfa"><i class="fa-solid fa-diagram-project"></i> CFA / SEM</a>
+      </div>
+    </div>
+    <div class="pl-spacer"></div>
+    <button type="button" class="pl-iconbtn pl-controls-toggle" title="Show or hide the control panel" aria-label="Show or hide the control panel"><i class="fa-solid fa-table-columns"></i></button>
+    <button type="button" id="pl-console-btn" class="pl-iconbtn" onclick="plDrawer('pl-console-drawer', true)" title="R console output" aria-label="R console output"><i class="fa-brands fa-r-project"></i></button>
+    <div class="pl-dec" role="group" aria-label="Decimal separator">
+      <span>Decimal</span>
+      <button type="button" data-dec="." aria-pressed="true" title="Decimal point, e.g. 0.05">0.05</button>
+      <button type="button" data-dec="," aria-pressed="false" title="Decimal comma, e.g. 0,05">0,05</button>
+    </div>
+    <div class="pl-dec pl-fig" role="group" aria-label="Figure colours">
+      <span>Figures</span>
+      <button type="button" data-fig="color" aria-pressed="true" title="Coloured figures">Colour</button>
+      <button type="button" data-fig="mono" aria-pressed="false" title="Black and white figures for journals: lines differ by style and marker, bars by hatching">B&amp;W</button>
+    </div>
+    <button type="button" id="pl-ai-btn" class="pl-aibtn" onclick="plAiDrawer(true)" title="AI settings" aria-label="AI settings">
+      <img src="avatar_kepala.png" alt=""><span>AI</span><i class="pl-dot" data-state="none"></i>
+    </button>
+  </header>
+
+  <!-- the views of a method: tabs along the top, always one click away -->
+  <nav class="pl-tabsrow" aria-label="Views">
+    <div class="pl-subnav" id="pl-subnav" role="tablist" aria-label="Views">{{ subnav }}</div>
+  </nav>
+
+  <section class="pl-ctl">{{ controls }}</section>
+
+  <main class="pl-stage">
+    <div class="pl-stagehead">
+      <div class="pl-headtext">
+        <h1 id="pl-stage-title">Welcome</h1>
+        <p id="pl-stage-sub">Choose a method to get started.</p>
+      </div>
+    </div>
+    <div class="pl-body">{{ stage }}</div>
+  </main>
+
+
+  <!-- shown while Shiny is calculating: the project logo spins and glints -->
+  <div class="pl-working" id="pl-working" role="status" aria-live="polite" data-state="busy">
+    <span class="pl-working-logo" aria-hidden="true"><img src="logoProjectLSA.png" alt=""></span>
+    <div class="pl-working-text">
+      <b id="pl-working-title">Working on it</b>
+      <span id="pl-working-msg">Just a moment</span>
+    </div>
+    <span class="pl-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+  </div>
+
+</div>

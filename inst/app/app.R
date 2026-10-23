@@ -2,8 +2,8 @@
 # Author: Hasan Djidu
 
 # ==== Load UI & Server Components ====
+source("ui_helpers.R")
 source("ui_module.R")
-source("homepage_ui.R")
 source("lca_ui.R")
 source("lpa_ui.R")
 source("efa_ui.R")
@@ -22,20 +22,27 @@ source("serverLTA.R")
 # ==== Misc utilities ====
 source("reference_list.R")
 source("simDataDesc.R")
+source("plot_theme.R")
+source("plot_helpers.R")
+source("followup.R")
 source("downloadPlot.R")
+source("report_refs.R")
+source("report_word.R")
 source("report_utils.R")
-source("styleCSS.R")
 
 # ==== AI Assistant ====
 source("ai_helper.R")
+source("ai_settings_ui.R")
 source("ai_widget_ui.R")
+source("serverCoach.R")
+source("serverAISettings.R")
 source("serverAIWidget.R")
+source("serverReportForm.R")
 source("console_widget_ui.R")
 
 # ==== Main Library ======
 library(shiny)
 library(shinyWidgets)
-library(httr)
 library(jsonlite)
 library(DT)
 library(readxl)
@@ -51,96 +58,46 @@ options(shiny.maxRequestSize = 500 * 1024^2) # 300 MB
 
 # ===== UI =====
 ui <- fluidPage(
-  styleCSS,
-  uiOutput("mainUI"),
+  tags$head(
+    tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"),
+    # the file's modification time in the URL makes browsers reload edited assets
+    tags$link(rel = "stylesheet", href = paste0("projectlsa.css?v=", as.integer(file.mtime("www/projectlsa.css")))),
+    tags$script(src = paste0("projectlsa.js?v=", as.integer(file.mtime("www/projectlsa.js"))))
+  ),
+  # Permanent HTML shell (templates/app_shell.html); the module is rendered into its slots
+  pl_shell(
+    "app_shell.html",
+    subnav = uiOutput("pl_subnav"),
+    controls = uiOutput("pl_controls"),
+    stage = uiOutput("pl_stage")
+  ),
+  ai_settings_ui(),
   ai_widget_ui(),
   console_widget_ui()
 )
 # ==== Server =====
 server <- function(input, output, session) {
 
-  # Global AI context: filled by each analysis module with its latest results
+  # Every analysis module keeps its own AI context and R console text, so results
+  # stay with their module when the user moves around. The global `ai_context` and
+  # `console_context` used by the assistant and the console widget mirror whichever
+  # module is open.
+  module_ids <- c("lpa", "lca", "lta", "efa", "cfa")
+  mod_ctx <- stats::setNames(lapply(module_ids, function(m) reactiveValues(results_text = "", module = "", ai_report_text = NULL)), module_ids)
+  mod_console <- stats::setNames(lapply(module_ids, function(m) reactiveValues(text = "No R output yet.")), module_ids)
   ai_context <- reactiveValues(results_text = "", module = "", ai_report_text = NULL)
 
-  # Global AI widget logic (chat, summary, settings)
-  server_ai_widget(input, output, session, ai_context)
+  # AI settings (several models, shared by the whole app) and the floating assistant
+  ai_state <- reactiveValues(slots = list(), mode = "auto", primary = NULL, seq = 0L, editing = NULL)
+  session$userData$ai_state <- ai_state     # also used by the report forms
+  server_ai_settings(input, output, session, ai_state)
+  server_ai_widget(input, output, session, ai_context, ai_state)
 
   # Global R console context
   console_context <- reactiveValues(text = "No R output yet.")
   output$global_console_output <- renderPrint({
     cat(console_context$text)
   })
-
-  # === AI Settings Logic ===
-  observeEvent(input$ai_provider, {
-    providers <- ai_providers()
-    selected <- input$ai_provider
-    if (selected %in% names(providers)) {
-      updateTextInput(session, "ai_model", value = providers[[selected]]$default_model)
-    }
-  })
-
-  observeEvent(input$test_ai_connection, {
-    req(input$ai_provider, input$ai_api_key)
-    output$ai_connection_status_ui <- renderUI({
-      tags$span(style = "color: blue;", "Testing...")
-    })
-
-    res <- ask_ai(
-      prompt = "Hello! Please reply with exactly 'Connection OK'.",
-      provider = input$ai_provider,
-      model = input$ai_model,
-      api_key = input$ai_api_key
-    )
-
-    if (grepl("Error", res, ignore.case = TRUE) || grepl("HTTP", res)) {
-      output$ai_connection_status_ui <- renderUI({
-        tags$span(style = "color: red;", res)
-      })
-    } else {
-      output$ai_connection_status_ui <- renderUI({
-        tags$span(style = "color: green; font-weight: bold;", icon("check"), " Connection OK")
-      })
-    }
-  })
-
-  observeEvent(TRUE,
-    {
-      showModal(modalDialog(
-        title = NULL,
-        div(
-          style = "text-align:center; line-height:1.6;",
-          tags$img(src = "logoProjectLSA.png", height = "70px"),
-          tags$h3("Welcome to projectLSA"),
-          tags$p(
-            "projectLSA is an interactive R Shiny application designed to support ",
-            "latent structure analysis for research & teaching purposes."
-          ),
-          HTML(
-            "
-         If you use this application in academic or research work, please cite it as follows:<br>
-         <strong>In-text citation:</strong>
-         <span style='color:#2563eb;'>(Djidu et al., 2026)</span><br><br>
-         <strong>Reference:</strong><br>
-         Djidu, H., Retnawati, H., Hadi, S., &amp; Haryanto. (2026).
-         <em>projectLSA: A Shiny Application for Integrated Latent Structure Analysis</em>.
-         Applied Psychological Measurement.
-         <a href='https://doi.org/10.1177/01466216261446305' target='_blank'>
-         https://doi.org/10.1177/01466216261446305</a><br><br>
-         Djidu, H., Retnawati, H., Hadi, S., Haryanto (2026). <em>projectLSA: R Shiny application for latent structure analysis with a graphical user interface</em>.
-         <a href='https://doi.org/10.32614/CRAN.package.projectLSA' target='_blank'>https://doi.org/10.32614/CRAN.package.projectLSA</a>. R package."
-          )
-        ),
-        footer = tagList(
-          actionButton("btn_donate_home_modal", "Support Us (Donate)", icon = icon("heart"), class = "btn btn-danger btn-sm btn-glow", onclick = "$(this).removeClass('btn-glow');"),
-          modalButton("START")
-        ),
-        easyClose = TRUE,
-        size = "l"
-      ))
-    },
-    once = TRUE
-  )
 
   # Download RIS handler for the homepage
   output$download_ris_home <- downloadHandler(
@@ -218,39 +175,74 @@ server <- function(input, output, session) {
     project("home")
   })
 
-  # === Render main UI ===
-  output$mainUI <- renderUI({
-    req(project())
-    fluidPage(
-      switch(project(),
-        "lca" = lca_mod("lca"),
-        "lpa" = lpa_mod("lpa"),
-        "lta" = lta_mod("lta"),
-        "efa" = efa_mod("efa"),
-        "cfa" = cfa_mod("cfa"),
-        home_mod("home")
-      )
+  # === Render the active module into the shell ===
+  # Each module returns list(controls, nav, stage): an optional persistent control
+  # panel, its sidebar views, and the stage itself.
+  module_parts <- reactive({
+    switch(project(),
+      "lca" = lca_mod("lca"),
+      "lpa" = lpa_mod("lpa"),
+      "lta" = lta_mod("lta"),
+      "efa" = efa_mod("efa"),
+      "cfa" = cfa_mod("cfa"),
+      home_mod("home")
     )
   })
-  # === Logic server: jalankan modul sesuai project aktif ===
+  output$pl_controls <- renderUI(module_parts()$controls)
+  output$pl_subnav <- renderUI(module_parts()$nav)
+  output$pl_stage <- renderUI(module_parts()$stage)
+
+  module_titles <- list(
+    home = list(title = "Home", sub = "Choose a method to get started."),
+    lpa  = list(title = "Latent Profile Analysis", sub = "Subgroups from continuous indicators."),
+    lca  = list(title = "Latent Class Analysis", sub = "Subgroups from categorical indicators."),
+    lta  = list(title = "Latent Trait Analysis (IRT)", sub = "Item and person parameters."),
+    efa  = list(title = "Exploratory Factor Analysis", sub = "The factor structure behind your items."),
+    cfa  = list(title = "CFA / SEM", sub = "Test a measurement or structural model.")
+  )
+  observeEvent(project(), {
+    session$sendCustomMessage("pl_module", c(list(id = project()), module_titles[[project()]]))
+  })
+  # === Module servers: each starts once per session ===
+  # Starting a module again every time it is opened would register its observers a
+  # second time (every run would then happen twice). Once started, a module keeps its
+  # results; only its screen is drawn again when it is reopened.
+  started <- character(0)
   observeEvent(project(), {
     current <- project()
-    # Reset the shared AI/console context when switching modules so the
-    # assistant never reasons over results from a previous analysis.
-    if (current != "home") {
+    if (current == "home" || current %in% started) return()
+    started <<- c(started, current)
+    ctx <- mod_ctx[[current]]
+    con <- mod_console[[current]]
+    switch(current,
+      "lpa" = server_lpa(input, output, session, ctx, con),
+      "efa" = server_efa(input, output, session, ctx, con),
+      "cfa" = server_cfa(input, output, session, ctx, con),
+      "lca" = server_lca(input, output, session, ctx, con),
+      "lta" = server_lta(input, output, session, ctx, con)
+    )
+  })
+
+  # Mirror the open module into the global context and console
+  observe({
+    m <- project()
+    if (m %in% module_ids) {
+      ai_context$results_text <- mod_ctx[[m]]$results_text
+      ai_context$module <- mod_ctx[[m]]$module
+      console_context$text <- mod_console[[m]]$text
+    } else {
       ai_context$results_text <- ""
       ai_context$module <- ""
       console_context$text <- "No R output yet."
     }
-    switch(current,
-      "lpa" = server_lpa(input, output, session, ai_context, console_context),
-      "efa" = server_efa(input, output, session, ai_context, console_context),
-      "cfa" = server_cfa(input, output, session, ai_context, console_context),
-      "lca" = server_lca(input, output, session, ai_context, console_context),
-      "lta" = server_lta(input, output, session, ai_context, console_context),
-      NULL
-    )
   })
+  server_coach(input, output, session, ai_context, ai_state, project, module_ids)
+  observeEvent(project(), { if (project() %in% module_ids) ai_context$ai_report_text <- mod_ctx[[project()]]$ai_report_text })
+  # a summary added from the assistant belongs to the module that is open
+  observeEvent(ai_context$ai_report_text, {
+    m <- isolate(project())
+    if (m %in% module_ids) mod_ctx[[m]]$ai_report_text <- ai_context$ai_report_text
+  }, ignoreNULL = FALSE)
   # LPA
   output$package_references_lpa <- renderUI({
     render_package_refs(c("shiny", "tidyverse", "tidyLPA", "DT", "readxl", "dplyr", "ggplot2"))

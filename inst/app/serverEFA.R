@@ -1,12 +1,15 @@
 server_efa <- function(input, output, session, ai_context, console_context) {
+  # text typed (or drafted by the assistant) in the Report form
+  report_notes <- server_report_form(input, output, session, "efa", ai_context, method_ctx = function() { req(efa_result()); list(fa = efa_result()$fa) })
+
   library(psych)
   library(lavaan)
   
   # ==== LOAD DATA ====
   raw_data_user <- reactive({
     req(input$data_source)
-    if (input$data_source == "bfi") return(psych::bfi %>% dplyr::select(A1:O5)%>% rownames_to_column("id_auto"))
-    if (input$data_source == "HolzingerSwineford1939") return(lavaan::HolzingerSwineford1939%>% dplyr::select(x1:x9)%>% rownames_to_column("id_auto"))
+    if (input$data_source == "bfi") return(psych::bfi %>% dplyr::select(A1:O5)%>% tibble::rownames_to_column("id_auto"))
+    if (input$data_source == "HolzingerSwineford1939") return(lavaan::HolzingerSwineford1939%>% dplyr::select(x1:x9)%>% tibble::rownames_to_column("id_auto"))
     if (input$data_source == "upload") {
       req(input$datafile)
       ext <- tolower(tools::file_ext(input$datafile$name))
@@ -393,7 +396,10 @@ server_efa <- function(input, output, session, ai_context, console_context) {
     withProgress(message = "Running Exploratory Factor Analysis (EFA)...", value = 0, {
       incProgress(0.1, detail = "Preparing data...")
       
-      df <- as.data.frame(data_user())[ , input$selected_vars, drop = FALSE]
+      # a variable list left over from another data set must not stop the app
+      vars_ok <- intersect(input$selected_vars, names(data_user()))
+      req(length(vars_ok) > 0)
+      df <- as.data.frame(data_user())[ , vars_ok, drop = FALSE]
       
       # ensure numeric columns
       nonnum <- which(!sapply(df, is.numeric))
@@ -463,81 +469,61 @@ server_efa <- function(input, output, session, ai_context, console_context) {
     n_comp <- if (!is.null(out$parallel$ncomp)) out$parallel$ncomp else NA
     bart <- out$bartlett
     kmo <- out$kmo
-    
-    # ==== Format hasil KMO ====
+    verdict <- function(txt, tone) tags$span(class = "pl-verdict", `data-tone` = tone, txt)
+
+    rows <- list(
+      tags$tr(tags$td(class = "pl-lbl", "Parallel analysis"),
+              tags$td(class = "pl-l", sprintf("%s factors, %s components", n_fact, n_comp)), tags$td(),
+              tags$td(class = "pl-l", "Number of factors whose eigenvalues exceed those of random data."))
+    )
     if (!is.null(kmo)) {
-      MSA_overall <- round(kmo$MSA, 3)
-      interpret <- if (MSA_overall >= 0.90) {
-        "Excellent sampling adequacy — the data are highly suitable for factor analysis."
-      } else if (MSA_overall >= 0.80) {
-        "Meritorious sampling adequacy — the data are suitable for factor analysis."
-      } else if (MSA_overall >= 0.70) {
-        "Middling sampling adequacy — acceptable for factor analysis."
-      } else if (MSA_overall >= 0.60) {
-        "Mediocre sampling adequacy — factor analysis may still be appropriate."
-      } else if (MSA_overall >= 0.50) {
-        "Miserable sampling adequacy — consider improving data quality or sample size."
-      } else {
-        "Unacceptable sampling adequacy — factor analysis is not recommended."
-      }
-      
-      kmo_html <- paste0(
-        "<ul style='margin-top:4px;'>",
-        "<li><b>Overall MSA:</b> ", MSA_overall, "</li>",
-        "</ul>",
-        "<p style='margin-left:10px; color:#2c3e50;'>", interpret, "</p>"
-      )
-    } else {
-      kmo_html <- "<p style='color:#999;'>KMO test could not be computed (check data).</p>"
+      msa <- kmo$MSA
+      lab <- if (msa >= .90) c("Marvelous", "ok", "The data are highly suitable for factor analysis.")
+        else if (msa >= .80) c("Meritorious", "ok", "The data are suitable for factor analysis.")
+        else if (msa >= .70) c("Middling", "ok", "Acceptable for factor analysis.")
+        else if (msa >= .60) c("Mediocre", "warn", "Factor analysis may still be appropriate.")
+        else if (msa >= .50) c("Miserable", "warn", "Consider improving data quality or sample size.")
+        else c("Unacceptable", "bad", "Factor analysis is not recommended.")
+      rows[[length(rows) + 1]] <- tags$tr(tags$td(class = "pl-lbl", "Kaiser-Meyer-Olkin (KMO)"),
+        tags$td(class = "pl-l", sprintf("overall MSA = %.3f", msa)), tags$td(verdict(lab[1], lab[2])), tags$td(class = "pl-l", lab[3]))
     }
-    
-    # ==== Format hasil Bartlett ====
     if (!is.null(bart)) {
-      pval <- bart$p.value
-      signif_text <- if (pval < 0.05) {
-        "<span style='color:#2ecc71;font-weight:500;'>Significant (p < 0.05)</span> — the correlation matrix is <b>not an identity matrix</b>, indicating that factor analysis is appropriate."
-      } else {
-        "<span style='color:#e74c3c;font-weight:500;'>Not significant (p ≥ 0.05)</span> — the correlation matrix is <b>close to an identity matrix</b>, suggesting that factor analysis may <b>not be suitable</b> for this data."
-      }
-      
-      bartlett_html <- paste0(
-        "<ul style='margin-top:4px;'>",
-        "<li><b>Chi-Square:</b> ", round(bart$chisq, 2), "</li>",
-        "<li><b>df:</b> ", bart$df, "</li>",
-        "<li><b>p-value:</b> ", format.pval(pval, digits = 3), "</li>",
-        "</ul>",
-        "<p style='margin-left:10px;'>", signif_text, "</p>"
-      )
-    } else {
-      bartlett_html <- "<p style='color:#999;'>Bartlett test could not be computed (check data).</p>"
+      pval <- bart$p.value; sig <- !is.na(pval) && pval < 0.05
+      rows[[length(rows) + 1]] <- tags$tr(tags$td(class = "pl-lbl", "Bartlett's test of sphericity"),
+        tags$td(class = "pl-l", HTML(sprintf("&chi;&sup2;(%s) = %s, <i>p</i> %s", bart$df, format(round(bart$chisq, 2), big.mark = ","),
+                                       if (pval < .001) "&lt; .001" else paste0("= ", sub("^0", "", sprintf("%.3f", pval)))))),
+        tags$td(verdict(if (sig) "Significant" else "Not significant", if (sig) "ok" else "bad")),
+        tags$td(class = "pl-l", if (sig) "The correlation matrix is not an identity matrix, so factor analysis is appropriate."
+                                 else "The correlation matrix is close to an identity matrix; factor analysis may not suit these data."))
     }
-    
-    # ==== Gabungkan semua hasil ====
-    HTML(paste0(
-      "<div style='font-family:Segoe UI, sans-serif; line-height:1.6; background:#f9f9f9;
-               border-radius:12px; padding:12px 18px; border:1px solid #ddd;'>",
-      
-      # --- Parallel Analysis ---
-      "<h4 style='font-weight:bold; color:#2c3e50; margin-bottom:6px;'>📊 Parallel Analysis Recommendation</h4>",
-      "<p style='margin-left:10px;'>
-       <a>Suggested Number of Factors =</a> ", n_fact, "<br>
-       <a>Suggested Number of Components =</a> ", n_comp, "
-     </p>",
-      
-      "<hr style='border: none; border-top: 1px solid #ccc;'>",
-      
-      # --- KMO and MSA ---
-      "<h4 style='font-weight:bold; color:#2c3e50; margin-bottom:6px;'>🧮 Kaiser-Meyer-Olkin (KMO) Measure</h4>",
-      kmo_html,
-      
-      "<hr style='border: none; border-top: 1px solid #ccc;'>",
-      
-      # --- Bartlett's Test ---
-      "<h4 style='font-weight:bold; color:#2c3e50; margin-bottom:6px;'>🧪 Bartlett's Test of Sphericity</h4>",
-      bartlett_html,
-      
-      "</div>"
-    ))
+    tags$section(class = "pl-flat",
+      tags$h4(class = "pl-flat-title", "Is the data suitable for factor analysis?"),
+      tags$div(class = "pl-table-wrap",
+        tags$table(class = "pl-table pl-table-text",
+          tags$thead(tags$tr(tags$th("Test"), tags$th("Result"), tags$th("Verdict"), tags$th("Reading"))),
+          tags$tbody(rows))))
+  })
+
+  # Sampling adequacy per item: a compact table with in-cell bars (easier to read and to copy than a lollipop plot)
+  output$kmo_item_tbl <- renderUI({
+    req(efa_result())
+    kmo <- efa_result()$kmo
+    req(!is.null(kmo))
+    d <- data.frame(Item = c("Overall", names(kmo$MSAi)), MSA = c(kmo$MSA, as.numeric(kmo$MSAi)), stringsAsFactors = FALSE)
+    cat_of <- function(x) if (x >= .9) c("Marvelous", "ok") else if (x >= .8) c("Meritorious", "ok") else if (x >= .7) c("Middling", "ok")
+      else if (x >= .6) c("Mediocre", "warn") else if (x >= .5) c("Miserable", "warn") else c("Unacceptable", "bad")
+    rows <- lapply(seq_len(nrow(d)), function(i) {
+      cl <- cat_of(d$MSA[i])
+      tags$tr(class = if (i == 1) "pl-row-total" else NULL,
+              tags$td(class = "pl-lbl", d$Item[i]), tags$td(sprintf("%.3f", d$MSA[i])),
+              tags$td(class = "pl-barcell", tags$span(class = "pl-bar", `data-tone` = cl[2], tags$i(style = sprintf("width:%d%%", round(max(0, min(1, d$MSA[i])) * 100))))),
+              tags$td(class = "pl-l", cl[1]))
+    })
+    tags$div(class = "pl-table-wrap",
+      tags$table(class = "pl-table",
+        tags$thead(tags$tr(tags$th("Item"), tags$th("MSA"), tags$th(""), tags$th("Category"))),
+        tags$tbody(rows)),
+      tags$p(class = "pl-stat-note", "Items below .50 are candidates for removal; .50 to .69 is weak, .70 and above is acceptable."))
   })
   
   
@@ -594,13 +580,8 @@ server_efa <- function(input, output, session, ai_context, console_context) {
         color = "Category"
       ) +
       xlim(0, 1) +
-      theme_minimal(base_size = 13) +
-      theme(
-        plot.title = element_text(face = "bold", size = 15),
-        plot.subtitle = element_text(size = 11),
-        axis.text.y = element_text(face = "bold"),
-        legend.position = "bottom"
-      )
+      theme_pl(13) +
+      theme(axis.text.y = element_text(face = "bold"), panel.grid.major.x = element_line(color = "#e7e5f4", linewidth = 0.4))
   })
   
   # Scree plot behaviour:
@@ -643,67 +624,36 @@ server_efa <- function(input, output, session, ai_context, console_context) {
     absmat <- abs(L)
     max.idx <- apply(absmat, 1, function(x) if (all(is.na(x))) NA_integer_ else which.max(x))
     
-    # --- Buat tabel loading HTML ---
-    hdr <- paste0(
-      "<tr><th style='text-align:left;padding:6px;border:1px solid #ccc;background:#f8f8f8;'>Item</th>",
-      paste0("<th style='padding:6px;border:1px solid #ccc;background:#f8f8f8;'>", colnames(L), "</th>", collapse = ""),
-      "</tr>"
-    )
-    
-    rows_html <- vapply(seq_len(nrow(L)), FUN.VALUE = character(1), function(i) {
-      cells <- vapply(seq_len(ncol(L)), FUN.VALUE = character(1), function(j) {
+    # --- loadings table: the largest loading of each item is highlighted ---
+    hdr <- tags$tr(tags$th("Item"), lapply(colnames(L), tags$th))
+    body <- lapply(seq_len(nrow(L)), function(i) {
+      tags$tr(tags$td(class = "pl-lbl", rown[i]), lapply(seq_len(ncol(L)), function(j) {
         val <- L[i, j]
-        if (is.na(val)) txt <- "" else txt <- format(round(val, 3), nsmall = 3)
-        if (!is.na(max.idx[i]) && j == max.idx[i] && abs(L[i, j]) > 0) {
-          paste0("<td style='background:#b2f0b2;padding:6px;border:1px solid #ccc;text-align:center;font-weight:600;'>", txt, "</td>")
-        } else {
-          paste0("<td style='padding:6px;border:1px solid #ccc;text-align:center;'>", txt, "</td>")
-        }
-      }, USE.NAMES = FALSE)
-      paste0("<tr><td style='text-align:left;padding:6px;border:1px solid #ccc;'>", rown[i], "</td>", paste(cells, collapse = ""), "</tr>")
+        txt <- if (is.na(val)) "" else sprintf("%.3f", val)
+        is_max <- !is.na(max.idx[i]) && j == max.idx[i] && abs(val) > 0
+        tags$td(class = if (is_max) "is-max" else NULL, txt)
+      }))
     })
-    
-    tbl_html <- paste0("<table style='margin:auto;border-collapse:collapse;width:auto;font-size:13px;font-family:Arial,Helvetica,sans-serif;'>",
-                       hdr, paste(rows_html, collapse = ""), "</table>")
-    
-    # --- Variance explained ---
+    tbl <- tags$table(class = "pl-table", tags$thead(hdr), tags$tbody(body))
+
+    # --- variance explained ---
     variance_df <- as.data.frame(round(fa$Vaccounted * 100, 2))
     variance_df <- tibble::rownames_to_column(variance_df, var = "Metric")
-    if (length(factor_names) == ncol(variance_df) - 1)
-      colnames(variance_df)[-1] <- factor_names
-    
-    # Gunakan table HTML agar tetap center
-    variance_tbl <- paste0(
-      "<table style='margin:auto;border-collapse:collapse;width:auto;font-size:13px;font-family:Arial,Helvetica,sans-serif;'>",
-      paste0(
-        "<tr><th style='padding:6px;border:1px solid #ccc;background:#f0f0f0;'>", 
-        paste(colnames(variance_df), collapse = "</th><th style='padding:6px;border:1px solid #ccc;background:#f0f0f0;'>"), 
-        "</th></tr>"
-      ),
-      paste(
-        apply(variance_df, 1, function(row) {
-          paste0("<tr>", paste0("<td style='text-align:center;padding:6px;border:1px solid #ccc;'>", row, "</td>", collapse = ""), "</tr>")
-        }),
-        collapse = ""
-      ),
-      "</table>"
-    )
-    
+    if (length(factor_names) == ncol(variance_df) - 1) colnames(variance_df)[-1] <- factor_names
+    vt <- tags$table(class = "pl-table",
+      tags$thead(tags$tr(lapply(colnames(variance_df), tags$th))),
+      tags$tbody(lapply(seq_len(nrow(variance_df)), function(i)
+        tags$tr(tags$td(class = "pl-lbl", variance_df[i, 1]), lapply(variance_df[i, -1], function(x) tags$td(sprintf("%.2f", x)))))))
+
+    chip <- function(k, v) tags$span(class = "pl-chip-kv", tags$small(k), tags$b(v))
     tagList(
-      div(
-        style = "text-align:center;",
-        tags$h4("Exploratory Factor Analysis Summary", style = "font-weight:bold;color:#2c3e50;"),
-        tags$p(HTML(paste0(
-          "<b>Extraction method:</b> ", method, "<br>",
-          "<b>Rotation:</b> ", rotation, "<br>",
-          "<b>Number of factors extracted:</b> ", n_factors, "<br>",
-          "<b>Total variance explained:</b> ", sprintf("%.2f%%", total_var)
-        ))),
-        tags$h5("Factor Loadings", style = "margin-top:15px;font-weight:bold;"),
-        HTML(tbl_html),
-        tags$h5("Variance Explained by Each Factor", style = "margin-top:20px;font-weight:bold;"),
-        HTML(variance_tbl)
-      )
+      tags$div(class = "pl-chips",
+               chip("Extraction", method), chip("Rotation", rotation), chip("Factors", n_factors), chip("Total variance", sprintf("%.1f%%", total_var))),
+      tags$h5(class = "pl-sub", "Factor loadings"),
+      tags$p(class = "pl-stat-note", "The largest loading of each item is shaded."),
+      tags$div(class = "pl-table-wrap", tbl),
+      tags$h5(class = "pl-sub", "Variance explained (%)"),
+      tags$div(class = "pl-table-wrap", vt)
     )
   })
   
@@ -889,10 +839,9 @@ server_efa <- function(input, output, session, ai_context, console_context) {
       return(NULL)
     }
 
-    report_path <- file.path(system.file("app", package = "projectLSA"), "efa_report.Rmd")
-    if (report_path == "" || !file.exists(report_path)) {
-      report_path <- "efa_report.Rmd"
-    }
+    # The template that sits next to the app wins; an installed copy is only a fallback
+    report_path <- "efa_report.Rmd"
+    if (!file.exists(report_path)) report_path <- file.path(system.file("app", package = "projectLSA"), "efa_report.Rmd")
     
     tempReport <- file.path(efa_report_res$path, "efa_report.Rmd")
     file.copy(report_path, tempReport, overwrite = TRUE)
@@ -905,6 +854,7 @@ server_efa <- function(input, output, session, ai_context, console_context) {
         params = list(
           efa_res = efa_result(),
           console_out = console_context$text,
+          notes = report_notes(),
           ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
         ),
         envir = new.env(parent = globalenv())
@@ -948,5 +898,20 @@ server_efa <- function(input, output, session, ai_context, console_context) {
       file.copy(path, file, overwrite = TRUE)
     },
     contentType = "text/html"
+  )
+
+  output$download_word_efa <- downloadHandler(
+    filename = function() paste0("EFA_Report_", Sys.Date(), ".docx"),
+    content = function(file) {
+      req(efa_result())
+      withProgress(message = "Building the Word report", value = 0.4, {
+        render_word_report("efa_report_word.Rmd", list(
+          efa_res = efa_result(), console_out = console_context$text, notes = report_notes(),
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text,
+          dec = (input$dec_sep %||% ".")
+        ), file, file.path(efa_report_res$path, "word"))
+      })
+    },
+    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   )
 }

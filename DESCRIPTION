@@ -1,6 +1,7 @@
 Package: projectLSA
 Title: Shiny Application for Latent Structure Analysis with a Graphical User Interface
-Version: 0.1.2
+Version: 0.2.0
+Date: 2026-10-23
 Authors@R:
     c(
       person(
@@ -29,7 +30,7 @@ Authors@R:
         comment = c(ORCID = "0000-0003-3322-904X")
       )
     )
-Description: Provides an interactive Shiny-based toolkit for conducting latent structure analyses, including Latent Profile Analysis (LPA), Latent Class Analysis (LCA), Latent Trait Analysis (LTA/IRT), Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Structural Equation Modeling (SEM). The implementation is grounded in established methodological frameworks: LPA is supported through 'tidyLPA' (Rosenberg et al., 2018) <doi:10.21105/joss.00978>, LCA through 'poLCA' (Linzer & Lewis, 2011) <doi:10.32614/CRAN.package.poLCA> & 'glca' (Kim & Kim, 2024) <doi:10.32614/CRAN.package.glca>, LTA/IRT via 'mirt' (Chalmers, 2012) <doi:10.18637/jss.v048.i06>, and EFA via 'psych' (Revelle, 2025). SEM and CFA functionalities build upon the 'lavaan' framework (Rosseel, 2012) <doi:10.18637/jss.v048.i02>. The CFA/SEM module additionally supports multi-group invariance testing, latent growth modelling, ordinal indicators estimated from polychoric correlations, modification indices, and path diagram visualisation. Every module can save and restore an analysis session, export an 'R Markdown' HTML report, and consult an optional AI assistant that interprets the current results through a user-supplied large language model API key. Users can upload datasets or use built-in examples, fit models, compare fit indices, visualize results, and export outputs without programming.
+Description: Provides an interactive Shiny-based toolkit for conducting latent structure analyses, including Latent Profile Analysis (LPA), Latent Class Analysis (LCA), Latent Trait Analysis (LTA/IRT), Exploratory Factor Analysis (EFA), Confirmatory Factor Analysis (CFA), and Structural Equation Modeling (SEM). The implementation is grounded in established methodological frameworks: LPA is supported through 'tidyLPA' (Rosenberg et al., 2018) <doi:10.21105/joss.00978>, LCA through 'poLCA' (Linzer & Lewis, 2011) <doi:10.32614/CRAN.package.poLCA> & 'glca' (Kim & Kim, 2024) <doi:10.32614/CRAN.package.glca>, LTA/IRT via 'mirt' (Chalmers, 2012) <doi:10.18637/jss.v048.i06>, and EFA via 'psych' (Revelle, 2025). SEM and CFA functionalities build upon the 'lavaan' framework (Rosseel, 2012) <doi:10.18637/jss.v048.i02>. The CFA/SEM module additionally supports multi-group invariance testing, latent growth modelling, ordinal indicators estimated from polychoric correlations, modification indices, and path diagram visualisation. Every module can save and restore an analysis session and export an 'R Markdown' HTML report whose sections can be drafted with an optional AI assistant. The assistant interprets the current results through one or several large language models reached with user-supplied API keys, including providers with a free tier. The application runs in a responsive HTML interface. Users can upload datasets or use built-in examples, fit models, compare fit indices, visualize results, and export outputs without programming.
 License: MIT + file LICENSE
 Depends:
     R (>= 4.0.0)
@@ -37,6 +38,7 @@ Encoding: UTF-8
 Imports:
     shinyBS,
     colourpicker,
+    curl,
     data.table,
     dplyr,
     DT,
@@ -45,7 +47,6 @@ Imports:
     ggplot2,
     glca,
     haven,
-    httr,
     jsonlite,
     kableExtra,
     knitr,
@@ -53,6 +54,7 @@ Imports:
     magick,
     mclust,
     mirt,
+    nnet,
     officer,
     plotly,
     poLCA,

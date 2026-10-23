@@ -123,6 +123,13 @@ for **projectLSA***.
 - Fully customized SEM path diagrams (full model or structural model
   only).
 
+### ✔ A clean HTML interface
+
+- One layout for every method: the sidebar lists the methods on the home
+  screen and turns into the method’s own sub-menus inside it.
+- Built for working with data: the sidebar folds to an icon rail, and
+  every options panel can be folded away.
+
 ### ✔ Save & Restore Analysis Sessions
 
 - Every module can save the whole analysis session (data, fitted models,
@@ -132,6 +139,8 @@ for **projectLSA***.
 
 ### ✔ HTML Reports
 
+- A report form with **Write with AI** on every part (background,
+  objectives, method, interpretation, conclusion, limitations).
 - Every module renders an R Markdown report that you can preview in-app
   before downloading.
 - Reports embed the underlying R console output and, optionally, an
@@ -142,7 +151,13 @@ for **projectLSA***.
 - A floating assistant available in every module: ask questions about
   the current results, or generate a summary in manuscript, APA 7,
   paragraph, bullet, or table format (English or Indonesian).
-- Works with Google Gemini, OpenAI, Groq, or OpenRouter.
+- Add several models at once: Google Gemini, Groq, OpenRouter, Cerebras
+  and Mistral (free tiers offered by the providers), OpenAI, xAI Grok,
+  or any OpenAI-compatible server (Ollama, LM Studio).
+- Automatic mode moves to the next model when one runs out of quota;
+  single mode uses one model.
+- Test every model at the same time, switch between them, and edit model
+  names in place.
 - **You supply your own API key at runtime.** It is used only for that
   session, is never stored by the package, and nothing is sent anywhere
   until you enter a key and ask a question. The application is fully
@@ -155,7 +170,7 @@ for **projectLSA***.
 All features of **projectLSA** can be explored through an interactive
 Shiny web application.
 
-👉 **Launch the live application:**  
+👉 **Launch the live application:**\
 <https://measure.shinyapps.io/ProjectLSA/>
 
 The web interface provides access to Latent Profile Analysis (LPA),

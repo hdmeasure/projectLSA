@@ -1,14 +1,14 @@
 # Fungsi untuk menu Siswa
 lta_ui <- function(project) {
-    tabsetPanel(
-      id = "main_tab_lta",
+    tabs <- pl_tabs(
+    "main_tab_lta",
       
       # --- TAB 1: Prepare Data & Model ----
       tabPanel(
         title = tagList(icon("upload"), "Prepare Data & Model"),
         value = "prepare_tab_lta", 
-        sidebarLayout(
-          sidebarPanel(
+        pl_split(
+          pl_side(
             width = 3,
             # Tombol kembali ke halaman utama
             actionButton("go_home", 
@@ -57,61 +57,36 @@ lta_ui <- function(project) {
                          class = "btn btn-success",
                          style = "width: 100% !important; margin-bottom: 10px;"),
             downloadButton("export_lta_rds", "Export Model (.rds)", 
-                           class = "btn btn-primary", 
+                           class = "btn btn-default", 
                            style = "width: 100% !important;")
           ),
-          mainPanel(
+          pl_main(
             width = 9,
             h5(icon("table"), "Data Preview"),
             DTOutput("data_preview_lta")
           )
         )
       ),
-      # ==== Model Comparison
+      # ==== The views of the chosen model. They are grouped in the top row: Model, Items, Persons, Group tests ====
+      tabPanel(title = tagList(icon("scale-balanced"), "Compare models"), value = "lta_cmp",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Model comparison"), uiOutput("fit_comparison"))),
+      tabPanel(title = tagList(icon("table-list"), "Item parameters"), value = "lta_items",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Item parameters and item fit"), uiOutput("item_summary"))),
+      tabPanel(title = tagList(icon("sliders"), "Loadings"), value = "lta_load",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Standardized loadings and communalities"), uiOutput("lta_loadings"))),
+      tabPanel(title = tagList(icon("chart-line"), "Item curves"), value = "lta_curves",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Item characteristic curves"), uiOutput("lta_curves_ui"))),
+      tabPanel(title = tagList(icon("wave-square"), "Information"), value = "lta_info",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Information and standard error"), uiOutput("lta_info_ui"))),
+      tabPanel(title = tagList(icon("link"), "Local dependence"), value = "lta_ld",
+               tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Local dependence (Q3)"), uiOutput("lta_q3"))),
       tabPanel(
-        title = tagList(icon("chart-line"), "Model Summary"),
-        value = "summary_tab", 
-        br(),
-        
-        column(
-          12,
-          # === 1️⃣ Model Comparison ===
-          h4(icon("table"), "Model Fit Comparison"),
-          uiOutput("fit_comparison"),
-         
-           tags$hr(style = "border-top: 2px solid #bbb;"),
-          
-          # === 2️⃣ Pilihan Model Terbaik ===
-          column(4,
-            h4(icon("cog"), "Select the Best Model"),
-            p(
-              "Choose the model you want to inspect in detail from the options below. ",
-              "The best model can be determined by observing the smallest AIC/BIC and the highest item fit count above."),
-              uiOutput('itemtype_ui')
-            ),
-          # === 3️⃣ Item Parameters & Fit ===
-          column(8,
-          h4(icon("chart-bar"), "Item Parameters & Item Fit Statistics"),
-          uiOutput('item_summary')
-          ),
-          br(),
-          br(),
-          tags$hr(style = "border-top: 2px solid #bbb;"),
-          column(12,
-          h4(icon("chart-line"), "Item Characteristic Curve (ICC) and Information Function"),
-          uiOutput('icc_info')
-          ),
-          br(),
-          br(),
-          br(),
-        )
-      ),
-      tabPanel(
-        title=tagList(icon("brain"), "Factor Scores"),
+        title = tagList(icon("brain"), "Factor scores"), value = "fs_tab",
         column(12, uiOutput('fscoreLTA') )
       ),
+      tabPanel(title = tagList(icon("people-arrows-left-right"), "Theta invariance"), value = "lta_thinv", uiOutput("thinv_ui")),
       tabPanel(
-        title = tagList(icon("info"), "Information & Reliability"),
+        title = tagList(icon("shield-halved"), "Reliability"),
         value = "info_rel_tab",
         uiOutput("info_rel_ui")
       ),
@@ -120,20 +95,25 @@ lta_ui <- function(project) {
         value = "dif_tab",
         uiOutput("dif_ui")
       ),
+      tabPanel(
+        title = tagList(icon("equals"), "Item invariance"),
+        value = "inv_tab",
+        uiOutput("inv_ui")
+      ),
 
       tabPanel(
         title = tagList(icon("file-import"), "Score New Data"),
-        sidebarLayout(
-          sidebarPanel(
+        pl_split(
+          pl_side(
             width = 3,
             h4("Score New Data"),
             p("Upload new data to calculate factor scores using the fitted LTA/IRT model."),
-            downloadButton("download_lta_template", "Download Data Template (Excel)", class = "btn-info btn-block"),
+            downloadButton("download_lta_template", "Download Data Template (Excel)", class = "btn-default btn-block"),
             br(),br(),
             fileInput("lta_newdata", "Upload New Data (Excel/CSV)", accept = c(".csv", ".xlsx", ".xls")),
             actionButton("lta_score_newdata_btn", "Calculate Scores", icon = icon("calculator"), class = "btn-success btn-block")
           ),
-          mainPanel(
+          pl_main(
             width = 9,
             div(style = "text-align: right; margin-bottom: 5px;",
                 downloadButton("download_lta_newscores", "Download New Scores (.csv)", class = "btn-primary btn-sm")),
@@ -146,19 +126,9 @@ lta_ui <- function(project) {
       # Report Preview
       # =====================================
       tabPanel(
-        title = tagList(icon("file-alt"), " Report Preview"),
-        column(12,
-               br(),
-               div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
-                   actionButton("lta_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
-                   downloadButton("download_report_lta", "Download HTML Report", class = "btn btn-primary")
-               ),
-               div(
-                 style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
-                 uiOutput("lta_report_preview_frame")
-               )
-        )
-      ),
+        title = tagList(icon("file-lines"), "Report"),
+      pl_report_tab("lta", "lta_generate_preview", "download_report_lta", "lta_report_preview_frame")
+    ),
       
       # ===== INFO ======
       tabPanel(
@@ -221,6 +191,22 @@ lta_ui <- function(project) {
                 "projectLSA. All rights reserved."
               ) ))
         )
-      )
+      ),
+    groups = list(
+      Model = c("lta_cmp", "lta_items", "lta_load"),
+      Items = c("lta_curves", "lta_info", "lta_ld", "info_rel_tab"),
+      Persons = c("fs_tab", "lta_thinv"),
+      `Group tests` = c("dif_tab", "inv_tab")
+    ),
+    group_icons = c(Model = "scale-balanced", Items = "list-check", Persons = "user-group", `Group tests` = "people-arrows"),
+    needsmodel = c("lta_cmp", "lta_items", "lta_load", "lta_curves", "lta_info", "lta_ld", "info_rel_tab", "fs_tab", "lta_thinv", "dif_tab", "inv_tab")
     )
-  }
+  list(controls = NULL, nav = tabs$nav, stage = tagList(
+    # the model the views below describe: shown on every view that depends on it
+    tags$div(class = "pl-modelbar pl-flat pl-selbar",
+             tags$div(class = "pl-selbar-row",
+                      tags$div(class = "pl-selbar-label", tags$b("Model to inspect"), tags$small("Compare the models first, then choose one.")),
+                      uiOutput("itemtype_ui")),
+             uiOutput("lta_model_chips")),
+    tabs$stage))
+}

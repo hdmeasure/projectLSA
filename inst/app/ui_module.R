@@ -1,32 +1,9 @@
-# Home module ----
-home_mod <- function(id){
-  ns <- NS(id)
-  homepage_ui()
-  }
+# Module entry points. Each returns list(controls, nav, stage) for the shell.
 
-# LCA module ----
-lca_mod <- function(id, project){
-  ns <- NS(id)
-  lca_ui(project)
-}
+home_mod <- function(id) list(controls = NULL, nav = NULL, stage = pl_home())
 
-# LPA module ----
-lpa_mod <- function(id, project){
-  ns <- NS(id)
-  lpa_ui(project)
-}
-# LPT module ----
-lta_mod <- function(id, project){
-  ns <- NS(id)
-  lta_ui(project)
-}
-# EFA module ----
-efa_mod <- function(id, project){
-  ns <- NS(id)
-  efa_ui(project)
-}
-# CFA module ----
-cfa_mod <- function(id, project){
-  ns <- NS(id)
-  cfa_ui(project)
-}
+lca_mod <- function(id, project) lca_ui(project)
+lpa_mod <- function(id, project) lpa_ui(project)
+lta_mod <- function(id, project) lta_ui(project)
+efa_mod <- function(id, project) efa_ui(project)
+cfa_mod <- function(id, project) cfa_ui(project)

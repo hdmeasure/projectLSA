@@ -1,0 +1,71 @@
+---
+output: word_document
+params:
+  helpers: ""
+  figdir: ""
+  dec: "."
+  fit_compare: NA
+  best_k: NA
+  model_best: NA
+  class_plot: NA
+  fit_plots: NA
+  summary_tbl: NA
+  selected_vars: NA
+  console_out: NA
+  ai_summary: ""
+  notes: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+source(params$helpers)
+w_init(params$dec, params$figdir)
+nt <- params$notes
+```
+
+```{r front, results='asis'}
+w_cover(nt, "Latent Class Analysis Report")
+w_notes(nt, c("objectives"))
+
+w_h("Method", 1)
+mt <- if (w_has(nt, "method")) nt$method else method_text("lca", list(vars = params$selected_vars, k = params$best_k))
+w_user(mt)
+```
+
+```{r results, results='asis'}
+w_h("Results", 1)
+w_h("Model Fit Comparison", 2)
+w_p(paste0("Solutions with different numbers of classes were compared on the information criteria (lower AIC and BIC are better), entropy and average posterior probabilities (values of .80 or higher indicate adequate classification), the size of the smallest class and the substantive meaning of the classes ", cite("nylund2007", "collins2010"), "."))
+fc <- params$fit_compare
+if (is.data.frame(fc) && nrow(fc) > 0) {
+  w_table(fc, "Fit statistics of the estimated class models", digits = 3,
+          note = "AIC = Akaike information criterion; BIC = Bayesian information criterion.")
+}
+fp <- params$fit_plots
+if (is.list(fp) && !inherits(fp, "ggplot")) for (n in names(fp)) w_figure(fp[[n]] + ggplot2::labs(title = NULL, subtitle = NULL), n, width = 6.5, height = 3.8)
+
+mk <- params$model_best
+if (!is.null(mk) && !identical(mk, NA) && !is.null(mk$P)) {
+  w_h("Selected Model", 2)
+  P <- as.numeric(mk$P)
+  w_table(data.frame(Class = paste("Class", seq_along(P)), Prevalence = P), "Class prevalence of the selected model", digits = 3)
+  w_p(paste0("The selected model has a log-likelihood of ", w_fmt(mk$llik, 2), ", AIC = ", w_fmt(mk$aic, 2), " and BIC = ", w_fmt(mk$bic, 2), "."))
+}
+
+w_h("Class Profile Plot", 2)
+w_figure(if (inherits(params$class_plot, "ggplot")) params$class_plot else NULL, "Item-response profile of each class", width = 6.5, height = 4.4)
+
+st <- params$summary_tbl
+if (is.list(st) && !is.data.frame(st)) {
+  w_h("Estimated Class Parameters", 2)
+  if (!is.null(st$class_size)) w_table(st$class_size, "Class size and prevalence", digits = 3)
+  if (!is.null(st$probability)) w_table(st$probability, "Item-response probabilities by class", digits = 3)
+} else if (is.data.frame(st) && nrow(st) > 0) {
+  w_h("Estimated Class Parameters", 2); w_table(st, "Estimated class parameters", digits = 3)
+}
+
+w_notes(nt, c("results"))
+w_ai(params$ai_summary)
+w_console(params$console_out)
+w_refs()
+```

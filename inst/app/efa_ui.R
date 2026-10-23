@@ -1,13 +1,13 @@
 # fa_ui.R (revisi)
 efa_ui <- function(project) {
-  tabsetPanel(
-    id = "main_tab_fa",
+  tabs <- pl_tabs(
+    "main_tab_fa",
     
     # === TAB 1: Prepare Data & Model ====
     tabPanel(
       title = tagList(icon("upload"), "Prepare Data & Model"),
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 3,
           # Tombol kembali
           actionButton("go_home", 
@@ -45,7 +45,7 @@ efa_ui <- function(project) {
                          style = "width: 100% !important;")
         ),
         
-        mainPanel(
+        pl_main(
           width = 9,
           DTOutput("data_preview_fa"),
           tags$hr(),
@@ -86,91 +86,35 @@ efa_ui <- function(project) {
     # ===== Pre-Analisis  ======
     tabPanel(
       "KMO & Bartlett Tests",
-      
-      fluidRow(
-        column(12, uiOutput("efa_tests")),
-        column(6, plotOutput("kmo_item" )),
-        column(6, plotOutput("scree_plot"))
+      uiOutput("efa_tests"),
+      tags$div(
+        class = "pl-two pl-two-flat",
+        tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Sampling adequacy per item"), uiOutput("kmo_item_tbl")),
+        tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Scree plot"), plotOutput("scree_plot", height = "320px"))
       )
-      ),
+    ),
     tabPanel(
       "EFA Results",
-      fluidRow(
-        
-        # ==================== KIRI: EFA SUMMARY =====================
-        column(
-          6,
-          div(
-            class = "card shadow-sm p-3 mb-3 bg-white rounded",
-            style = "height: 80vh; overflow-y: auto;",
-            
-            # ==== Header & Input ====
-            div(
-              style = "display: flex;flex-direction: column;align-items: center;justify-content: flex-start;text-align: center;width: 100%;padding: 10px;",
-              # === Input Number of Factors (di tengah) ===
-              div(
-                style = "display: flex; flex-direction: column; align-items: center;",
-                tags$h4(icon('chart-simple'), "Exploratory Factor Analysis Summary", style = "font-weight:bold;color:#2c3e50;"),
-                tags$b("Number of Factors:"),
-                numericInput("n_factors", label = NULL, value = 3, min = 1, max = 10, width = '120px')
-              ),
-              # === Dynamic factor names (juga di tengah) ===
-              tags$b("Factors' Names:"),
-              uiOutput("factor_names_ui")
-            ),
-            
-            hr(),
-            # ==== Tombol download di kanan ====
-            div(
-              style = "text-align: right; margin-bottom: 5px; width: 100%;",
-              downloadButton(
-                "download_loading",
-                "Download Loadings (.csv)",
-                class = "btn btn-primary btn-block btn-sm"
-              )
-            ),
-            
-            # ==== Output ringkasan ====
-            uiOutput("efa_summary")
-          )
-        ),
-        
-        # ==================== KANAN: FACTOR SCORES =====================
-        column(
-          6,
-          div(
-            class = "card shadow-sm p-3 mb-3 bg-white rounded",
-            style = "height: 80vh; overflow-y: auto;",
-            div(
-              style = "display: flex; flex-direction: column; align-items: center;justify-content: flex-start;text-align: center;width: 100%;padding: 10px;",
-              tags$h4(icon("table"), "Factor Scores", style = "font-weight:bold;color:#2c3e50;"),
-              tags$p("These are estimated latent factor scores for each observation.")
-            ),
-            div(
-              class = "card shadow-sm p-3 mb-3 bg-white rounded",
-              style = "height: 80vh; overflow-y: auto;",
-              # ==== Tombol download skor ====
-              div(
-                style = "text-align: right; margin-bottom: 5px; width: 100%;",
-                downloadButton(
-                  "download_scores",
-                  "Download Factor Scores (.csv)",
-                  class = "btn btn-primary btn-block btn-sm"
-                )
-              ),
-              
-              # ==== Output skor faktor ====
-              DTOutput ("efa_scores_table")
-            )
-          )
-        )
+      tags$div(
+        class = "pl-efa-head",
+        tags$div(class = "pl-efa-n", tags$label(`for` = "n_factors", "Number of factors"),
+                 numericInput("n_factors", label = NULL, value = 3, min = 1, max = 10, width = "84px")),
+        tags$div(class = "pl-efa-names", tags$label("Factor names"), uiOutput("factor_names_ui")),
+        tags$div(class = "pl-efa-actions",
+                 downloadButton("download_loading", "Loadings (.csv)", class = "btn btn-default btn-sm"),
+                 downloadButton("download_scores", "Factor scores (.csv)", class = "btn btn-default btn-sm"))
+      ),
+      tags$div(
+        class = "pl-two pl-two-flat pl-two-wide-left",
+        tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Summary and loadings"), uiOutput("efa_summary")),
+        tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", "Factor scores"), DTOutput("efa_scores_table"))
       )
     ),
 
     tabPanel(
       "Score New Data",
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 3,
           h4("Score New Data"),
           p("Upload new data to calculate factor scores using the fitted EFA model."),
@@ -179,7 +123,7 @@ efa_ui <- function(project) {
           fileInput("efa_newdata", "Upload New Data (Excel/CSV)", accept = c(".csv", ".xlsx", ".xls")),
           actionButton("efa_score_newdata_btn", "Calculate Scores", icon = icon("calculator"), class = "btn-success btn-block")
         ),
-        mainPanel(
+        pl_main(
           width = 9,
           div(style = "text-align: right; margin-bottom: 5px;",
               downloadButton("download_efa_newscores", "Download New Scores (.csv)", class = "btn-primary btn-sm")),
@@ -189,18 +133,8 @@ efa_ui <- function(project) {
     ),
 
     tabPanel(
-      title = tagList(icon("file-alt"), " Report Preview"),
-      column(12,
-             br(),
-             div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
-                 actionButton("efa_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
-                 downloadButton("download_report_efa", "Download HTML Report", class = "btn btn-primary")
-             ),
-             div(
-               style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
-               uiOutput("efa_report_preview_frame")
-             )
-      )
+      title = tagList(icon("file-lines"), "Report"),
+      pl_report_tab("efa", "efa_generate_preview", "download_report_efa", "efa_report_preview_frame")
     ),
 
     tabPanel(
@@ -267,4 +201,5 @@ efa_ui <- function(project) {
       )
     )
   )
+  list(controls = NULL, nav = tabs$nav, stage = tabs$stage)
 }

@@ -4,8 +4,7 @@ date: "`r Sys.Date()`"
 output:
   html_document:
     theme: flatly
-    toc: true
-    toc_float: true
+    toc: false
 params:
   fit_compare: NA
   best_k: NA
@@ -15,6 +14,7 @@ params:
   selected_vars: NA
   console_out: NA
   ai_summary: ""
+  notes: NA
 ---
 
 <style>
@@ -37,6 +37,9 @@ params:
   h1 { font-size: 28px; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
   h2 { font-size: 22px; color: #2980b9; }
   h3 { font-size: 18px; color: #34495e; }
+  .report-cover { margin: 0 0 18px; padding: 16px 20px; border-radius: 12px; background: #f3f1fd; border-left: 5px solid #5748d9; }
+  .report-title { margin: 0 !important; border: 0 !important; padding: 0 !important; font-size: 24px !important; }
+  .report-authors { margin: 6px 0 0; color: #556074; font-weight: 600; }
 </style>
 
 ```{r setup, include=FALSE}
@@ -44,6 +47,21 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 library(knitr)
 library(kableExtra)
 library(ggplot2)
+```
+
+```{r notes-front, results='asis'}
+nt <- params$notes
+.has <- function(k) is.list(nt) && !is.null(nt[[k]]) && nzchar(nt[[k]])
+.p <- function(x) paste0("<p>", gsub("\n+", "</p><p>", htmltools::htmlEscape(trimws(x))), "</p>")
+if (.has("title") || .has("authors")) {
+  cat("<div class='report-cover'>")
+  if (.has("title")) cat("<h1 class='report-title'>", htmltools::htmlEscape(nt$title), "</h1>", sep = "")
+  if (.has("authors")) cat("<p class='report-authors'>", htmltools::htmlEscape(nt$authors), "</p>", sep = "")
+  cat("</div>\n\n")
+}
+for (sec in list(c("background", "Background"), c("objectives", "Objectives"), c("method", "Method"))) {
+  if (.has(sec[1])) cat("## ", sec[2], "\n\n", .p(nt[[sec[1]]]), "\n\n", sep = "")
+}
 ```
 
 ## Analysis Overview
@@ -105,6 +123,12 @@ if (!is.null(st) && nrow(st) > 0) {
     kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
 } else {
   cat("No profile summary available.")
+}
+```
+
+```{r notes-back, results='asis'}
+for (sec in list(c("results", "Interpretation of the Results"), c("conclusion", "Conclusion"), c("limits", "Limitations and Recommendations"))) {
+  if (.has(sec[1])) cat("## ", sec[2], "\n\n", .p(nt[[sec[1]]]), "\n\n", sep = "")
 }
 ```
 

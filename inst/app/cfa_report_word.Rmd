@@ -1,0 +1,136 @@
+---
+output: word_document
+params:
+  helpers: ""
+  figdir: ""
+  model_type: "CFA"
+  fit_final: NA
+  fit_initial: NA
+  model_history_df: NA
+  console_out: NA
+  ai_summary: ""
+  notes: NA
+  dec: "."
+  ave: NA
+  relsem: NA
+  htmt: NA
+  plot_standardized: TRUE
+  plot_style: "lisrel"
+  plot_layout: "tree2"
+  plot_residuals: FALSE
+  plot_exoCov: FALSE
+  plot_edge_label_size: 0.75
+  plot_nodesize_lat: 5
+  plot_nodesize_man: 5
+  plot_nodesize_man2: 2.5
+  plot_rotation: 4
+  man_col: "#A1E3F9"
+  lat_col: "#FFFFBA"
+  bifactor: ""
+  edgewidth: 0.3
+  plotwidth: 10
+  plotheight: 8
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+suppressPackageStartupMessages({ library(lavaan) })
+source(params$helpers)
+w_init(params$dec, params$figdir)
+nt <- params$notes
+fit <- params$fit_final
+is_sem <- identical(params$model_type, "SEM")
+ordinal <- isTRUE(tryCatch(lavaan::lavInspect(fit, "categorical"), error = function(e) FALSE))
+has_val <- function(x) !is.null(x) && !identical(x, NA) && !(is.atomic(x) && all(is.na(x)))
+```
+
+```{r body, results='asis'}
+w_cover(nt, if (is_sem) "Structural Equation Modeling Report" else "Confirmatory Factor Analysis Report")
+w_notes(nt, c("objectives"))
+
+w_h("Method", 1)
+w_user(if (w_has(nt, "method")) nt$method else method_text("cfa", list(fit = fit, sem = is_sem)))
+
+m <- fitMeasures(fit)
+g <- function(n) unname(m[n])
+fit_ok <- function(v, good, acc, lower = FALSE) if (is.na(v)) "an unknown" else if ((!lower && v >= good) || (lower && v < good)) "a good" else if ((!lower && v >= acc) || (lower && v < acc)) "an acceptable" else "a poor"
+p_txt <- if (!is.na(g("pvalue")) && g("pvalue") < .001) "< .001" else paste0("= ", sub("^0", "", formatC(g("pvalue"), format = "f", digits = 3)))
+
+w_h("Results", 1)
+w_h("Model Fit", 2)
+w_p(paste0(
+  "The chi-square test gave &#967;&#178;(", g("df"), ") = ", formatC(g("chisq"), format = "f", digits = 2),
+  ", p ", p_txt, ". The RMSEA was ", w_noz(g("rmsea"), 3), ", indicating ", fit_ok(g("rmsea"), .05, .08, TRUE), " fit. The CFI was ", w_noz(g("cfi"), 3),
+  " and the TLI was ", w_noz(g("tli"), 3), ", indicating ", fit_ok(g("cfi"), .95, .90), " fit. The SRMR was ", w_noz(g("srmr"), 3), ", indicating ", fit_ok(g("srmr"), .05, .08, TRUE), " fit."))
+fm <- intersect(c("chisq", "df", "pvalue", "rmsea", "cfi", "tli", "srmr", "gfi", "agfi"), names(m))
+lab <- c(chisq = "Chi-square (&#967;&#178;)", df = "Degrees of freedom", pvalue = "p", rmsea = "RMSEA", cfi = "CFI", tli = "TLI", srmr = "SRMR", gfi = "GFI", agfi = "AGFI")
+fv <- as.numeric(m[fm])
+fit_tab <- data.frame(Index = unname(lab[fm]), Value = ifelse(fm == "df", formatC(fv, format = "f", digits = 0),
+  ifelse(fm == "chisq", formatC(fv, format = "f", digits = 2, decimal.mark = params$dec),
+  ifelse(fm == "pvalue", w_p_apa(fv), w_noz(fv, 3)))), stringsAsFactors = FALSE)
+w_table(fit_tab, "Fit indices of the estimated model", align = c("l", "r"),
+        note = "RMSEA = root mean square error of approximation; CFI = comparative fit index; TLI = Tucker&#8211;Lewis index; SRMR = standardized root mean square residual.")
+
+hist <- params$model_history_df
+if (is.data.frame(hist) && nrow(hist) > 1) {
+  w_h("Model Modification History", 2)
+  w_p(paste0("An initial model was evaluated and then adjusted using modification indices. Improper solutions with negative variances were flagged ", cite("chen2001"), "."))
+  hist <- hist[, intersect(c("Model", "Note", "chisq", "df", "pvalue", "RMSEA", "CFI", "TLI", "SRMR", "Heywood", "Status"), names(hist)), drop = FALSE]
+  for (cc in intersect(c("chisq", "df", "pvalue", "RMSEA", "CFI", "TLI", "SRMR"), names(hist))) hist[[cc]] <- as.numeric(hist[[cc]])
+  w_table(hist, "Fit of each model estimated in the modification sequence", digits = c(0, 0, 2, 0, 3, 3, 3, 3, 3))
+}
+
+w_h("Measurement Model", 2)
+pe <- parameterEstimates(fit); sd <- standardizedSolution(fit)
+ld <- merge(pe[pe$op == "=~", c("lhs", "rhs", "est", "se", "pvalue")], sd[sd$op == "=~", c("lhs", "rhs", "est.std")], by = c("lhs", "rhs"), all.x = TRUE)
+rv <- pe[pe$op == "~~" & pe$lhs == pe$rhs, c("lhs", "est")]; names(rv) <- c("rhs", "resid")
+ld <- merge(ld, rv, by = "rhs", all.x = TRUE)
+ld <- ld[order(ld$lhs, ld$rhs), ]
+meas <- data.frame(Factor = ld$lhs, Item = ld$rhs, B = ld$est, SE = ld$se, p = w_p_apa(ld$pvalue), Beta = ld$est.std, Residual = ld$resid, stringsAsFactors = FALSE)
+w_table(meas, "Factor loadings and residual variances", digits = 3,
+        note = "B = unstandardized loading; SE = standard error; Beta = standardized loading. Residual = unstandardized residual variance.")
+if (any(ld$resid < 0, na.rm = TRUE)) w_p(paste0("Some residual variances are negative (Heywood cases), which signals an improper solution ", cite("chen2001"), "."))
+
+w_h("Reliability and Validity", 2)
+if (has_val(params$ave) || has_val(params$relsem)) {
+  fs <- unique(c(names(params$ave), names(params$relsem)))
+  rt <- data.frame(Factor = fs, AVE = if (has_val(params$ave)) as.numeric(params$ave[fs]) else NA, CR = if (has_val(params$relsem)) as.numeric(params$relsem[fs]) else NA)
+  w_p(paste0("Composite reliability (CR) above .70 and average variance extracted (AVE) above .50 indicate acceptable reliability and convergent validity ", cite("fornell1981", "hair2010"), "."))
+  w_table(rt, "Construct reliability and convergent validity", digits = 3, note = "AVE = average variance extracted; CR = composite reliability.")
+} else w_p("AVE and CR are not available for this model.")
+
+if (has_val(params$htmt) && !identical(params$htmt, "<NA>")) {
+  hm <- as.matrix(params$htmt); hm[upper.tri(hm, diag = TRUE)] <- NA
+  hd <- data.frame(Factor = rownames(hm), as.data.frame(hm), check.names = FALSE, row.names = NULL)
+  w_p(paste0("Discriminant validity was examined with the heterotrait&#8211;monotrait ratio (HTMT); values below .85 (or .90) support discriminant validity ", cite("henseler2015"), "."))
+  w_table(hd, "Heterotrait&#8211;monotrait ratio of correlations", digits = 3)
+}
+
+if (is_sem) {
+  sp <- parameterEstimates(fit, standardized = TRUE); sp <- sp[sp$op == "~", ]
+  if (nrow(sp) > 0) {
+    w_h("Structural Model", 2)
+    w_table(data.frame(Outcome = sp$lhs, Predictor = sp$rhs, B = sp$est, SE = sp$se, z = sp$z, p = w_p_apa(sp$pvalue), Beta = sp$std.all, stringsAsFactors = FALSE),
+            "Structural regression paths", digits = 3, note = "B = unstandardized coefficient; Beta = standardized coefficient.")
+  }
+}
+
+w_h("Path Diagram", 2)
+draw_path <- function() {
+  A <- semPlot::semPaths(fit, intercepts = FALSE, thresholds = FALSE, what = ifelse(params$plot_standardized, "std", "est"), style = params$plot_style, layout = params$plot_layout,
+    residuals = params$plot_residuals, exoCov = params$plot_exoCov, edge.label.cex = params$plot_edge_label_size, nCharNodes = 6, nCharEdges = 6,
+    sizeLat = params$plot_nodesize_lat, sizeMan = params$plot_nodesize_man, sizeMan2 = params$plot_nodesize_man2, rotation = params$plot_rotation,
+    color = list(man = params$man_col, lat = params$lat_col), label.color = "black", mar = c(2, 5, 5, 5),
+    bifactor = if (is.null(params$bifactor) || params$bifactor == "") NULL else params$bifactor, esize = params$edgewidth,
+    edge.color = "black", freeStyle = c(1, "black"), fixedStyle = c(2, "black"), fade = FALSE, DoNotPlot = TRUE)
+  plot(semptools::mark_sig(semPaths_plot = A, object = fit, alphas = c("*" = 0.05, "**" = 0.01, "***" = 0.001)))
+}
+pw <- as.numeric(params$plotwidth); ph <- as.numeric(params$plotheight)
+w_figure(draw_path, paste0("Path diagram of the ", if (params$plot_standardized) "standardized" else "unstandardized", " solution"),
+         note = "* p < .05. ** p < .01. *** p < .001.", width = 6.5, height = min(8.5, 6.5 * ph / pw))
+
+w_notes(nt, c("results"))
+w_ai(params$ai_summary)
+w_console(params$console_out)
+w_refs()
+```

@@ -106,6 +106,9 @@ calc_htmt <- function(data, model_syntax,
 }
 # ====END of CR AVE and HTMT ====
 server_cfa <- function(input, output, session, ai_context, console_context) {
+  # text typed (or drafted by the assistant) in the Report form
+  report_notes <- server_report_form(input, output, session, "cfa", ai_context, method_ctx = function() { req(cfa_current_id()); fit <- cfa_fit_list()[[cfa_current_id()]]$fit; list(fit = fit, sem = any(lavaan::parameterEstimates(fit)$op == "~")) })
+
   library(lavaan)
   library(semPlot)
   library(readxl)
@@ -855,16 +858,16 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         columnDefs = list(list(className = "dt-center", targets = 3:12))
       )
     ) %>%
-      formatStyle("chisq_df_ratio", color = styleInterval(c(2, 5), c("green", "orange", "red")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("pvalue", color = styleInterval(c(0.05, 0.1), c("red", "green", "green")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("RMSEA", color = styleInterval(c(0.08, 0.1), c("green", "orange", "red")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("CFI", color = styleInterval(c(0.88, 0.9), c("red", "orange", "green")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("TLI", color = styleInterval(c(0.88, 0.9), c("red", "orange", "green")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("GFI", color = styleInterval(c(0.88, 0.9), c("red", "orange", "green")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("SRMR", color = styleInterval(c(0.05, 0.08), c("green", "orange", "red")), fontWeight = "bold", textAlign = "center") %>%
-      formatStyle("NFI", color = styleInterval(c(0.88, 0.9), c("red", "orange", "green")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("chisq_df_ratio", color = styleInterval(c(2, 5), c("#065f58", "#8a5a0b", "#8f1d2a")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("pvalue", color = styleInterval(c(0.05, 0.1), c("#8f1d2a", "#065f58", "#065f58")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("RMSEA", color = styleInterval(c(0.08, 0.1), c("#065f58", "#8a5a0b", "#8f1d2a")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("CFI", color = styleInterval(c(0.88, 0.9), c("#8f1d2a", "#8a5a0b", "#065f58")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("TLI", color = styleInterval(c(0.88, 0.9), c("#8f1d2a", "#8a5a0b", "#065f58")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("GFI", color = styleInterval(c(0.88, 0.9), c("#8f1d2a", "#8a5a0b", "#065f58")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("SRMR", color = styleInterval(c(0.05, 0.08), c("#065f58", "#8a5a0b", "#8f1d2a")), fontWeight = "bold", textAlign = "center") %>%
+      formatStyle("NFI", color = styleInterval(c(0.88, 0.9), c("#8f1d2a", "#8a5a0b", "#065f58")), fontWeight = "bold", textAlign = "center") %>%
       formatStyle("Status", backgroundColor = styleEqual(df$Status, df$StatusColor), fontWeight = "bold", color = "black", textAlign = "center") %>%
-      formatStyle("Heywood", color = styleEqual(c("Yes", "No"), c("red", "green")), fontWeight = "bold", textAlign = "center")
+      formatStyle("Heywood", color = styleEqual(c("Yes", "No"), c("#8f1d2a", "#065f58")), fontWeight = "bold", textAlign = "center")
   })
 
   # Handle note edit in fit comparison table
@@ -955,7 +958,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
       ) %>%
         formatStyle(
           columns = numeric_cols,
-          color = styleInterval(c(0.7, 0.8), c("green", "orange", "red"))
+          color = styleInterval(c(0.7, 0.8), c("#065f58", "#8a5a0b", "#8f1d2a"))
         ) %>%
         formatStyle(
           columns = "Variable",
@@ -1024,7 +1027,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     ) %>%
       formatStyle(
         columns = which(!names(combined_data) %in% c("Model", "Note")),
-        color = styleInterval(c(0.45, 0.5), c("red", "orange", "green"))
+        color = styleInterval(c(0.45, 0.5), c("#8f1d2a", "#8a5a0b", "#065f58"))
       ) %>%
       formatRound(columns = which(sapply(combined_data, is.numeric)), digits = 3)
   })
@@ -1086,7 +1089,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     ) %>%
       formatStyle(
         columns = numeric_cols,
-        color = styleInterval(c(0.6, 0.7), c("red", "orange", "green"))
+        color = styleInterval(c(0.6, 0.7), c("#8f1d2a", "#8a5a0b", "#065f58"))
       ) %>%
       formatStyle(
         columns = "Model",
@@ -1387,7 +1390,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         formatStyle(
           columns = "StdLoading",
           fontWeight = "bold",
-          color = styleInterval(c(0.3, 0.5, 0.7), c("red", "orange", "blue", "green"))
+          color = styleInterval(c(0.3, 0.5, 0.7), c("#8f1d2a", "#8a5a0b", "#2f2582", "#065f58"))
         )
     },
     server = FALSE
@@ -1671,21 +1674,10 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
   # Renders the R Markdown report and returns the path of the generated HTML
   # file (or NULL on failure). Shared by the preview button and the download
   # handler, so a report can be downloaded without generating a preview first.
-  generate_cfa_report <- function(progress_label = "Generating Report...") {
-    if (is.null(cfa_current_id())) {
-      return(NULL)
-    }
+  # Everything the CFA report templates (HTML and Word) are given
+  cfa_report_params <- function() {
     cur_id <- cfa_current_id()
     fit_info <- cfa_fit_list()[[cur_id]]
-
-    report_path <- "cfa_report.Rmd"
-    if (!file.exists(report_path)) {
-      report_path <- file.path(system.file("app", package = "projectLSA"), "cfa_report.Rmd")
-    }
-
-    tempReport <- file.path(cfa_report_res$path, "cfa_report.Rmd")
-    file.copy(report_path, tempReport, overwrite = TRUE)
-
     # Get plot colors safely
     if (input$plot_color_scheme == "Custom") {
       man_col <- input$mancolour
@@ -1723,24 +1715,19 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
       )
     }))
 
-    out_html <- file.path(cfa_report_res$path, "cfa_report_out.html")
-
     # Detect model type
     pe <- lavaan::parameterEstimates(fit_info$fit)
     model_type <- if (any(pe$op == "~")) "SEM" else "CFA"
 
-    showModal(modalDialog(progress_label, footer = NULL))
-    ok <- tryCatch({
-      rmarkdown::render(tempReport,
-        output_file = out_html,
-        params = list(
+    list(
           model_type = model_type,
           fit_final = fit_info$fit,
           fit_initial = fit_initial,
           model_history_df = model_history_df,
           console_out = console_context$text,
+          notes = report_notes(),
           ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text,
-          dec = input$cfa_dec_sep,
+          dec = (input$dec_sep %||% "."),
           ave = fit_info$ave,
           relsem = fit_info$relsem,
           htmt = fit_info$htmt,
@@ -1760,7 +1747,31 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
           edgewidth = input$edgewidth,
           plotwidth = input$plotwidth,
           plotheight = input$plotheight
-        ),
+    )
+  }
+
+  generate_cfa_report <- function(progress_label = "Generating Report...") {
+    if (is.null(cfa_current_id())) {
+      return(NULL)
+    }
+    cur_id <- cfa_current_id()
+    fit_info <- cfa_fit_list()[[cur_id]]
+
+    report_path <- "cfa_report.Rmd"
+    if (!file.exists(report_path)) {
+      report_path <- file.path(system.file("app", package = "projectLSA"), "cfa_report.Rmd")
+    }
+
+    tempReport <- file.path(cfa_report_res$path, "cfa_report.Rmd")
+    file.copy(report_path, tempReport, overwrite = TRUE)
+
+    out_html <- file.path(cfa_report_res$path, "cfa_report_out.html")
+
+    showModal(modalDialog(progress_label, footer = NULL))
+    ok <- tryCatch({
+      rmarkdown::render(tempReport,
+        output_file = out_html,
+        params = cfa_report_params(),
         envir = new.env(parent = globalenv())
       )
       cfa_report_path(out_html)
@@ -1848,6 +1859,17 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     contentType = "text/html"
   )
 
+  output$download_word_cfa <- downloadHandler(
+    filename = function() sub("\\.html$", ".docx", cfa_report_filename()),
+    content = function(file) {
+      req(cfa_current_id())
+      withProgress(message = "Building the Word report", value = 0.4, {
+        render_word_report("cfa_report_word.Rmd", cfa_report_params(), file, file.path(cfa_report_res$path, "word"))
+      })
+    },
+    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  )
+
   output$download_report_html_modal <- downloadHandler(
     filename = cfa_report_filename,
     content = cfa_report_content,
@@ -1875,6 +1897,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
 
     b_margin <- 6
     A <- semPlot::semPaths(
+      intercepts = FALSE, thresholds = FALSE,   # no triangles for the thresholds of ordered indicators
       fit_obj,
       what = ifelse(input$plot_standardized, "std", "est"),
       structural = (input$plot_model_scope == "structural"),
@@ -1911,7 +1934,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
     )
 
     # Apply decimal separator
-    if (input$cfa_dec_sep == ",") {
+    if ((input$dec_sep %||% ".") == ",") {
       A$graphAttributes$Edges$labels <- gsub("\\.", ",", A$graphAttributes$Edges$labels)
     }
 
@@ -1919,7 +1942,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
 
     # Add fit info inside a box
     factor_names <- get_factor_names(fit_obj)
-    fit_text_raw <- get_fit_text(m, input$fit_indices_selected, dec_sep = input$cfa_dec_sep)
+    fit_text_raw <- get_fit_text(m, input$fit_indices_selected, dec_sep = (input$dec_sep %||% "."))
     wrapped_fit <- paste(strwrap(paste0("Fit indices: ", fit_text_raw), width = 110), collapse = "\n")
 
     estimator_text <- paste0("Estimator = ", cfa_estimator_label(input$cfa_estimator, obj$ordered), " | Factors: ", paste(factor_names, collapse = ", "))
@@ -1995,7 +2018,7 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
 
     factor_names <- get_factor_names(fit_obj)
     selected <- input$fit_indices_selected
-    fit_text <- get_fit_text(m, selected, dec_sep = input$cfa_dec_sep)
+    fit_text <- get_fit_text(m, selected, dec_sep = (input$dec_sep %||% "."))
 
     estimator_text <- paste0(
       "Estimator = ", cfa_estimator_label(input$cfa_estimator, obj$ordered),
@@ -2197,12 +2220,11 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         
         out <- paste0(out, paste(capture.output(print(summary(mod$fit, fit.measures = TRUE, standardized = TRUE))), collapse = "\n"))
         
-        if (requireNamespace("semTools", quietly = TRUE)) {
-          try({
-            rel <- semTools::reliability(mod$fit)
-            out <- paste0(out, "\n\n=== RELIABILITY & AVE ===\n", paste(capture.output(print(rel)), collapse = "\n"))
-          }, silent = TRUE)
-        }
+        try({
+          rel <- calc_ave_cr(mod$fit)           # composite reliability (CR) and AVE, also for ordinal indicators
+          rel_txt <- capture.output(print(round(as.data.frame(rel), 3)))
+          out <- paste0(out, "\n\n=== RELIABILITY & AVE ===\n", paste(rel_txt, collapse = "\n"))
+        }, silent = TRUE)
         full_out <- paste0(full_out, out, "\n")
       }
       
@@ -2441,12 +2463,10 @@ server_cfa <- function(input, output, session, ai_context, console_context) {
         summary_text <- paste(capture.output(summary(fit, fit.measures = TRUE, standardized = TRUE)), collapse = "\n")
         
         rel_text <- ""
-        if (requireNamespace("semTools", quietly = TRUE)) {
-          try({
-            rel <- semTools::reliability(fit)
-            rel_text <- paste0("\n\nRELIABILITY & AVE:\n", paste(capture.output(print(rel)), collapse = "\n"))
-          }, silent = TRUE)
-        }
+        try({
+          rel <- calc_ave_cr(fit)
+          rel_text <- paste0("\n\nRELIABILITY & AVE:\n", paste(capture.output(print(round(as.data.frame(rel), 3))), collapse = "\n"))
+        }, silent = TRUE)
         
         res_text <- paste0(res_text, fit_text, "\nRAW MODEL SUMMARY:\n", summary_text, rel_text, "\n")
       }

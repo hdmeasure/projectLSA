@@ -1,5 +1,8 @@
 # ==== Reactive Data LCA ====
 server_lca <- function(input, output, session, ai_context, console_context) {
+  # text typed (or drafted by the assistant) in the Report form
+  report_notes <- server_report_form(input, output, session, "lca", ai_context, method_ctx = function() { req(lca_models()); list(vars = input$vars_lca, k = input$best_class_lca) })
+
   library(poLCA)
   library(dplyr)
   library(tidyr)
@@ -173,7 +176,7 @@ output$data_preview_lca <- DT::renderDT({
   numeric_cols <- which(sapply(df, function(x) is.numeric(x)))
   
   DT::datatable(df,#extensions = 'Buttons',
-                options = list(scrollX = TRUE, dom = 'rtp',
+                options = list(scrollX = TRUE, dom = 'rtp'
                                # buttons = list(
                                #   list(
                                #     extend = 'csv',
@@ -186,8 +189,7 @@ output$data_preview_lca <- DT::renderDT({
                                #     filename = paste0('Data LCA')
                                #   ))
                                ),
-                rownames = TRUE) %>% 
-    formatRound(columns = numeric_cols, digits = 0)
+                rownames = TRUE)
 }, server = TRUE)
 
 
@@ -344,21 +346,32 @@ observeEvent(input$run_lca, {
   } else {
     NULL
   }
-  gtable <- as.data.frame(gof$gtable) %>% dplyr::rename(p_Gsq = `Boot p-value`)
-  dtable <- as.data.frame(gof$dtable) %>% dplyr::rename(p_Deviance = `Boot p-value`) %>% dplyr::select(Deviance,p_Deviance)
-  gof_glca <- cbind(gtable,dtable)
-  if (input$min_class_lca == 1) {
-    fit_1_class <- data.frame(
-      loglik     = polca_models[["1"]]$llik,
-      AIC        = polca_models[["1"]]$aic,
-      BIC        = polca_models[["1"]]$bic,
-      entropy    = NA,
-      df         = polca_models[["1"]]$resid.df,
-      Gsq        = polca_models[["1"]]$Gsq,
-      p_Gsq      = NA,
-      Deviance   = NA,
-      p_Deviance = NA)
-    gof_glca <- rbind(fit_1_class, gof_glca)
+  if (is.null(gof)) {
+    # Fewer than two comparable glca models (for example a range of only 1 to 2 classes):
+    # show what poLCA reports for each class count and leave the bootstrap tests empty.
+    ks <- names(polca_models)[!vapply(polca_models, is.null, logical(1))]
+    gof_glca <- do.call(rbind, lapply(ks, function(k) {
+      m <- polca_models[[k]]
+      data.frame(loglik = m$llik, AIC = m$aic, BIC = m$bic, entropy = NA_real_, df = m$resid.df,
+                 Gsq = m$Gsq, p_Gsq = NA_real_, Deviance = NA_real_, p_Deviance = NA_real_)
+    }))
+  } else {
+    gtable <- as.data.frame(gof$gtable) %>% dplyr::rename(p_Gsq = `Boot p-value`)
+    dtable <- as.data.frame(gof$dtable) %>% dplyr::rename(p_Deviance = `Boot p-value`) %>% dplyr::select(Deviance,p_Deviance)
+    gof_glca <- cbind(gtable,dtable)
+    if (input$min_class_lca == 1) {
+      fit_1_class <- data.frame(
+        loglik     = polca_models[["1"]]$llik,
+        AIC        = polca_models[["1"]]$aic,
+        BIC        = polca_models[["1"]]$bic,
+        entropy    = NA,
+        df         = polca_models[["1"]]$resid.df,
+        Gsq        = polca_models[["1"]]$Gsq,
+        p_Gsq      = NA,
+        Deviance   = NA,
+        p_Deviance = NA)
+      gof_glca <- rbind(fit_1_class, gof_glca)
+    }
   }
   })
   removeModal()
@@ -508,38 +521,38 @@ output$fit_table_lca <- renderDT({
       formatStyle('AIC',
                   backgroundColor = styleEqual(
                     c(aic_vals[1], aic_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(aic_vals[1], 'bold')
       ) %>%
       formatStyle('BIC',
                   backgroundColor = styleEqual(
                     c(bic_vals[1], bic_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(bic_vals[1], 'bold')
       ) %>%
       formatStyle('entropy',
-                  backgroundColor = styleInterval(c(0.7, 0.8), c('lightcoral', 'khaki', 'lightgreen')),
+                  backgroundColor = styleInterval(c(0.7, 0.8), c('#fbe0e3', '#fbefd2', '#d9f1ee')),
                   fontWeight      = styleInterval(c(0.7, 0.8), c('bold', 'bold',''))
       ) %>%
       formatStyle('Av_Prob',
-                    backgroundColor = styleInterval(c(0.8, 0.9), c('lightcoral', 'khaki', 'lightgreen')),
+                    backgroundColor = styleInterval(c(0.8, 0.9), c('#fbe0e3', '#fbefd2', '#d9f1ee')),
                     fontWeight      = styleInterval(c(0.8, 0.9), c('bold', 'bold',''))
       ) %>% 
       formatStyle(
         'p_Gsq',
-        backgroundColor = styleInterval(0.05, c('lightcoral', 'lightgreen')),
+        backgroundColor = styleInterval(0.05, c('#fbe0e3', '#d9f1ee')),
         fontWeight      = styleInterval(0.05, c('bold', ''))
       ) %>%
       formatStyle(
         'p_Deviance',
-        backgroundColor = styleInterval(0.05, c('lightgreen', 'lightcoral')),
+        backgroundColor = styleInterval(0.05, c('#d9f1ee', '#fbe0e3')),
         fontWeight      = styleInterval(0.05, c('', 'bold'))
       ) %>% 
       formatStyle(
         'Smallest_class_size',
-        backgroundColor = styleInterval(c(5, 7), c('lightcoral', 'khaki', 'lightgreen')),
+        backgroundColor = styleInterval(c(5, 7), c('#fbe0e3', '#fbefd2', '#d9f1ee')),
         fontWeight      = styleInterval(c(5, 7), c('bold', 'bold',''))
       )
 }, server = FALSE)
@@ -549,12 +562,7 @@ fit_plot_lca_reactive <- reactive({
   req(lca_models())
   fit <- fit_lca() %>% dplyr::select(N_class, BIC, AIC)
   fit_long <- fit %>% pivot_longer(-N_class, names_to="Index", values_to="Value")
-  ggplot(fit_long, aes(x=N_class, y=Value, color=Index, group=Index)) +
-    geom_line(size = 1.2) + geom_point(size = 3) +
-    geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3) +
-    labs(title = "BIC & AIC Comparison", x = "Number of Class", y = "Fit Index") +
-    theme_minimal(base_size = 14) + 
-    theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  pl_compare_plot(fit_long, "N_class", "Value", group = "Index", title = "BIC and AIC", xlab = "Number of classes", ylab = "Fit index", palette = "purple")
 })
 # Render Plot
 output$fit_plot_lca <- renderPlot({
@@ -575,26 +583,7 @@ entropy_plot_lca_reactive <- reactive({
     dplyr::select(N_class, entropy, Av_Prob) %>%
     tidyr::pivot_longer(-N_class, names_to = "Index", values_to = "Value")
   
-  ggplot(
-    fit,
-    aes(
-      N_class, Value,
-      color = Index, linetype = Index, shape = Index, group = Index
-    )
-  ) +
-    geom_line(size = 1.2) +
-    geom_point(size = 3) +
-    geom_text(aes(label = round(Value, 2)), vjust = -0.6, size = 3, show.legend = FALSE) +
-    scale_color_manual(values = c(entropy = "black", Av_Prob = "blue")) +
-    scale_shape_manual(values = c(entropy = 17, Av_Prob = 15)) +
-    scale_linetype_manual(values = c(entropy = "solid", Av_Prob = "dashed")) +
-    labs(
-      title = "Entropy & Average Posterior Probability",
-      x = "Number of Class",
-      y = "Value"
-    ) +
-    theme_minimal(base_size = 14) +
-    theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+  pl_compare_plot(fit, "N_class", "Value", group = "Index", title = "Entropy and average posterior probability", xlab = "Number of classes", ylab = "Value", palette = "amber")
 })
 
 # Render Plot
@@ -621,78 +610,97 @@ output$class_name_inputs_lca <- renderUI({
   })
 })
 
-# === 1. Fungsi pembuat plot ===
-build_best_model_plot_lca <- function(lca_models, k, vars_lca, class_names, interactive = TRUE) {
+# === 1. Plot of the selected model ===
+# type: "auto" (profile lines when every item has two categories, stacked bars otherwise),
+#       "profile" (probability of the second category, one line per class) or "stack"
+build_best_model_plot_lca <- function(lca_models, k, vars_lca, class_names, interactive = TRUE,
+                                      type = "auto", palette = "brand", custom = NULL, show_values = FALSE, mono = FALSE) {
   model_k <- lca_models[[as.character(k)]]
   probs <- model_k$probs
-  
-  prob <- data.frame(matrix("", ncol = 2 + as.numeric(k), nrow = 0))
-  names(prob) <- c("Var", "Level", paste0("Prob.class", 1:as.numeric(k)))
-  
+  k <- as.numeric(k)
+  all_binary <- all(vapply(probs, ncol, integer(1)) == 2L)
+  if (identical(type, "auto") || is.null(type)) type <- if (all_binary) "profile" else "stack"
+  if (identical(type, "profile") && !all_binary) type <- "stack"      # lines need two categories per item
+
+  prob <- data.frame(matrix("", ncol = 2 + k, nrow = 0))
+  names(prob) <- c("Var", "Level", paste0("Prob.class", 1:k))
   for (j in seq_along(vars_lca)) {
-    a <- data.frame(
-      Var = vars_lca[j],
-      Level = colnames(probs[[j]]),
-      t(probs[[j]])
-    )
+    a <- data.frame(Var = vars_lca[j], Level = colnames(probs[[j]]), t(probs[[j]]))
     a <- setNames(a, names(prob))
     prob <- rbind(prob, a)
   }
-  
   prob_gathered <- prob %>%
     tidyr::gather(key = "class", value = "probability", 3:ncol(prob)) %>%
-    dplyr::mutate(
-      class = gsub("Prob.", "", class),
-      probability = round(as.numeric(probability), 3),
-      Var = factor(Var, levels = vars_lca)
-    )# %>%
-    # dplyr::arrange(Var)
-  
-  prob_gathered$class <- factor(
-    prob_gathered$class,
-    levels = paste0("class", 1:as.numeric(k)),
-    labels = class_names
-  )
-  
-  if (interactive) {
-    gg <- ggplot(prob_gathered,
-                 aes(
-                   x = Var, y = probability, fill = Level,
-                   tooltip = paste0(
-                     "Class: ", class,
-                     "<br>Variable: ", Var,
-                     "<br>Level: ", Level,
-                     "<br>Probability: ", probability
-                   ),
-                   data_id = class
-                 )) +
-      geom_bar_interactive(stat = "identity", position = "stack")
-  } else {
-    gg <- ggplot(prob_gathered,
-                 aes(x = Var, y = probability, fill = Level)) +
-      geom_bar(stat = "identity", position = "stack")
+    dplyr::mutate(class = gsub("Prob.", "", class), probability = round(as.numeric(probability), 3), Var = factor(Var, levels = vars_lca))
+  prob_gathered$class <- factor(prob_gathered$class, levels = paste0("class", 1:k), labels = class_names)
+
+  if (identical(type, "profile")) {
+    # the probability of the second category (e.g. "yes", "agree") of every item, one line per class
+    d <- prob_gathered
+    keep <- vapply(seq_along(vars_lca), function(j) colnames(probs[[j]])[2], character(1))
+    d <- d[d$Level == keep[match(as.character(d$Var), vars_lca)], , drop = FALSE]
+    cols <- pl_lca_palette(palette, k, custom)
+    d$tip <- paste0("Class: ", d$class, "<br>Item: ", d$Var, "<br>Category: ", d$Level, "<br>Probability: ", formatC(d$probability, format = "f", digits = 3))
+    # lines differ by colour, line type and marker, so the figure still reads in black and white
+    ltys <- rep_len(c("solid", "22", "42", "13", "solid", "22"), k); shps <- rep_len(c(21, 22, 24, 23, 25, 21), k)
+    if (isTRUE(mono)) cols <- rep("black", k)
+    gg <- ggplot(d, aes(x = Var, y = probability, colour = class, group = class, linetype = class)) +
+      geom_line(linewidth = 0.8, alpha = 0.9)
+    gg <- if (interactive) gg + geom_point_interactive(aes(tooltip = tip, data_id = class, shape = class), size = 2.2, fill = "white", stroke = 0.9)
+          else gg + geom_point(aes(shape = class), size = 2.2, fill = "white", stroke = 0.9)
+    if (isTRUE(show_values)) gg <- gg + geom_text(aes(label = formatC(probability, format = "f", digits = 2)), vjust = -1, size = 2.6, show.legend = FALSE)
+    return(gg +
+      scale_colour_manual(values = cols, name = NULL) +
+      scale_linetype_manual(values = ltys, name = NULL) +
+      scale_shape_manual(values = shps, name = NULL) +
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.25), expand = expansion(mult = c(0.02, 0.08))) +
+      labs(x = NULL, y = "Probability of the higher category") +
+      theme_pl(11) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 8.5),
+            panel.grid.major.x = element_line(color = "#eef0f6", linewidth = 0.3), plot.margin = margin(6, 10, 4, 8)))
   }
-  
+
+  # stacked bars: one panel per class, categories as fill
+  lv <- unique(prob_gathered$Level)
+  cols <- if (isTRUE(mono)) pl_grey_set(length(lv)) else pl_lca_palette(palette, length(lv), custom)
+  if (interactive) {
+    gg <- ggplot(prob_gathered, aes(x = Var, y = probability, fill = Level,
+                 tooltip = paste0("Class: ", class, "<br>Variable: ", Var, "<br>Level: ", Level, "<br>Probability: ", probability),
+                 data_id = class)) +
+      geom_bar_interactive(stat = "identity", position = "stack", width = 0.8)
+  } else {
+    gg <- ggplot(prob_gathered, aes(x = Var, y = probability, fill = Level)) + geom_col(position = "stack", width = 0.8, colour = "white", linewidth = 0.4)
+  }
   gg +
     facet_grid(~ class) +
-    ylab("Probability") + xlab("") +
-    theme_minimal(base_size = 13) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
-      panel.grid.major.x = element_blank(),
-      panel.grid.minor.x = element_blank(),
-      strip.text = element_text(face = "bold", size = 11)
-    )
+    scale_fill_manual(values = setNames(cols, lv), name = NULL) +
+    labs(x = NULL, y = "Probability") +
+    theme_pl(11) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8), panel.grid.major.x = element_blank(),
+          strip.text = element_text(face = "bold", size = 10.5, color = "#1e1b4b"), plot.margin = margin(6, 10, 4, 8))
 }
 
-# === 2. Reactive untuk plot interaktif ===
+# the plot options chosen in the sidebar
+lca_plot_args <- function() list(type = input$lca_plot_type %||% "auto", palette = input$lca_palette %||% "brand", mono = identical(input$fig_mode, "mono"),
+                                 custom = {k <- as.numeric(input$best_class_lca %||% 2); v <- vapply(seq_len(max(k, 8)), function(i) input[[paste0("lca_col_", i)]] %||% NA_character_, ""); v[!is.na(v)]},
+                                 show_values = isTRUE(input$lca_show_values))
+
+output$lca_custom_cols <- renderUI({
+  req(input$lca_palette == "custom", input$best_class_lca)
+  k <- as.numeric(input$best_class_lca)
+  base <- pl_palettes$brand
+  pl_grid(lapply(seq_len(k), function(i) colourpicker::colourInput(paste0("lca_col_", i), paste("Class", i), value = base[(i - 1) %% length(base) + 1], showColour = "background", palette = "square")), cols = 2)
+})
+
+# === 2. Reactive for the interactive plot ===
 best_model_plot_lca_reactive <- reactive({
   req(lca_models(), input$best_class_lca, input$vars_lca)
   k <- input$best_class_lca
   class_names <- sapply(1:k, function(i) input[[paste0("class_name_", i)]])
   if (length(class_names) == 0) class_names <- paste("Class", 1:k)
-  
-  build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = TRUE)
+  a <- lca_plot_args()
+  build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = TRUE,
+                            type = a$type, palette = a$palette, custom = a$custom, show_values = a$show_values, mono = a$mono)
 })
 
 # === 3. Render plot interaktif ===
@@ -702,7 +710,7 @@ output$best_model_plot_lca <- renderGirafe({
   
   ggiraph::girafe(
     ggobj = best_model_plot_lca_reactive(),
-    width_svg = 9, height_svg = 5,
+    width_svg = 8, height_svg = 3.8,
     options = list(
       opts_hover(css = "fill-opacity:1;"),
       opts_tooltip(css = "background-color:white;color:black;
@@ -713,14 +721,16 @@ output$best_model_plot_lca <- renderGirafe({
   )
 })
 
-# === 4. Reactive versi statis untuk download ===
+# === 4. Static version (reports, copying) ===
 best_model_plot_lca_static <- reactive({
   req(lca_models(), input$best_class_lca, input$vars_lca)
   k <- input$best_class_lca
   class_names <- sapply(1:k, function(i) input[[paste0("class_name_", i)]])
   if (length(class_names) == 0) class_names <- paste("Class", 1:k)
-  
-  build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = FALSE)
+  a <- lca_plot_args()
+  g <- build_best_model_plot_lca(lca_models()$polca, k, input$vars_lca, class_names, interactive = FALSE,
+                                 type = a$type, palette = a$palette, custom = a$custom, show_values = a$show_values, mono = FALSE)
+  if (isTRUE(a$mono)) pl_mono(g) else g          # hatching for bars, black lines for the rest
 })
 
 
@@ -908,6 +918,17 @@ df_out <- reactive({
   
   df
 })
+
+# ---- follow-up analyses (classification quality, comparisons, cross-tabs, predictors, export) ----
+lca_assign <- reactive({
+  req(lca_models(), input$best_class_lca)
+  df <- df_out(); k <- as.numeric(input$best_class_lca)
+  model_k <- lca_models()$polca[[as.character(k)]]; req(model_k)
+  idx <- complete.cases(data_lca()[, input$vars_lca, drop = FALSE])
+  P <- matrix(NA_real_, nrow(df), k); P[idx, ] <- model_k$posterior
+  list(data = df, cls = "Class", post = P, skip = c("Respon"))
+})
+server_followup(input, output, session, "lca", lca_assign, "class")
 
 # Data Summary Respon_With Class
 output$data_summary_lca_with_class <- DT::renderDT({
@@ -1134,7 +1155,7 @@ output$reg_lca_plot <- renderPlot({
   
   # === Plot ===
   ggplot(prob_long, aes(Covariate, Probability, color = Class)) +
-    geom_line(size = 1.2) +
+    geom_line(linewidth = 1.2) +
     geom_point(size = 3) +
     scale_y_continuous(limits = c(0, 1)) +
     labs(
@@ -1562,10 +1583,9 @@ lca_report_path <- reactiveVal(NULL)
 generate_lca_report <- function(progress_label = "Generating Report...") {
   if (is.null(lca_models())) return(NULL)
 
-  report_path <- file.path(system.file("app", package = "projectLSA"), "lca_report.Rmd")
-  if (report_path == "" || !file.exists(report_path)) {
-    report_path <- "lca_report.Rmd"
-  }
+  # The template that sits next to the app wins; an installed copy is only a fallback
+  report_path <- "lca_report.Rmd"
+  if (!file.exists(report_path)) report_path <- file.path(system.file("app", package = "projectLSA"), "lca_report.Rmd")
   tempReport <- file.path(lca_report_res$path, "lca_report.Rmd")
   file.copy(report_path, tempReport, overwrite = TRUE)
 
@@ -1586,7 +1606,8 @@ generate_lca_report <- function(progress_label = "Generating Report...") {
         summary_tbl = tryCatch(summary_data_lca(), error = function(e) NULL),
         selected_vars = input$vars_lca,
         console_out = console_context$text,
-        ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
+        notes = report_notes(),
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
       ),
       envir = new.env(parent = globalenv())
     )
@@ -1627,5 +1648,30 @@ output$download_report_lca <- downloadHandler(
     file.copy(path, file, overwrite = TRUE)
   },
   contentType = "text/html"
+)
+
+output$download_word_lca <- downloadHandler(
+  filename = function() paste0("LCA_Report_", Sys.Date(), ".docx"),
+  content = function(file) {
+    req(lca_models())
+    withProgress(message = "Building the Word report", value = 0.4, {
+      k <- input$best_class_lca
+      plots <- list(`BIC and AIC across the number of classes` = fit_plot_lca_reactive,
+                    `Entropy and average posterior probability across the number of classes` = entropy_plot_lca_reactive)
+      mono <- identical(input$fig_mode, "mono")
+      plots <- lapply(plots, function(f) { p <- tryCatch(f(), error = function(e) NULL); if (mono && inherits(p, "ggplot")) pl_mono(p) else p })
+      render_word_report("lca_report_word.Rmd", list(
+        fit_compare = tryCatch(as.data.frame(fit_lca()), error = function(e) NULL), best_k = k,
+        model_best = lca_models()$polca[[as.character(k)]],
+        class_plot = tryCatch(best_model_plot_lca_static(), error = function(e) NULL),
+        fit_plots = Filter(Negate(is.null), plots),
+        summary_tbl = tryCatch(summary_data_lca(), error = function(e) NULL),
+        selected_vars = input$vars_lca, console_out = console_context$text, notes = report_notes(),
+        ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text,
+        dec = (input$dec_sep %||% ".")
+      ), file, file.path(lca_report_res$path, "word"))
+    })
+  },
+  contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
 }

@@ -1,13 +1,13 @@
 # Fungsi untuk menu LCA
 lca_ui <- function(project) {
-  tabsetPanel(
-    id = "main_tab_lca",
+  tabs <- pl_tabs(
+    "main_tab_lca",
     
     # --- TAB 1: Prepare Data & Model ----
     tabPanel(
       title = tagList(icon("upload"), "Prepare Data & Model"),
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 3,
           actionButton("go_home", 
                        label = tagList(icon("home"), "Main Menu"), 
@@ -44,7 +44,7 @@ lca_ui <- function(project) {
                          class = "btn btn-primary",
                          style = "width: 100% !important;")
         ),
-        mainPanel(
+        pl_main(
           width = 9,
           h5(icon("table"), "Data Preview"),
           DTOutput("data_preview_lca"),
@@ -67,7 +67,7 @@ lca_ui <- function(project) {
       fluidRow(
         column(12,
                div(
-                 style = "text-align:center;",  
+                 style = "text-align:left;",  
                  div(
                    style = "display:inline-block; font-size:11px; line-height:0.9; padding:0; margin:0;",
                    h5(icon("info-circle"), "Model Fit Statistics"), 
@@ -104,103 +104,49 @@ lca_ui <- function(project) {
                  )
                )
         ),
-        column(6, h5(icon("chart-bar"), "AIC & BIC Comparison"), 
-               downloadButton("download_plot_AicBic_LCA", "Download Plot AIC/BIC (.png)"),
-               plotOutput("fit_plot_lca")
-               ),
-        column(6, h5(icon("chart-bar"), "Entropy & Average Posterior Probability Comparison"), 
-               downloadButton("download_plot_entropy", "Download Plot Entropy & Av.Probs (.png)"),
-               plotOutput("entropy_plot_lca")
-        ), br(), br(),
+        column(12, tags$div(
+          class = "pl-two pl-two-flat",
+          tags$section(class = "pl-flat", plotOutput("fit_plot_lca", height = "250px")),
+          tags$section(class = "pl-flat", plotOutput("entropy_plot_lca", height = "250px"))
+        ))
       )
     ),
     
     # --- TAB 3: Best Model ----
     tabPanel(
       title = tagList(icon("star"), "Best Model"),
-      sidebarLayout(
-        sidebarPanel(
+      pl_split(
+        pl_side(
           width = 2, 
           numericInput("best_class_lca",label =  "Select the Best Number of Class:",value = 3, min = 1),
-          uiOutput("class_name_inputs_lca")
+          uiOutput("class_name_inputs_lca"),
+          tags$hr(),
+          selectInput("lca_plot_type", "Plot type",
+                      choices = c("Automatic" = "auto", "Profile lines (two categories per item)" = "profile", "Stacked bars" = "stack"), selected = "auto"),
+          selectInput("lca_palette", "Colours",
+                      choices = c("Brand" = "brand", "Colour-blind safe" = "okabe", "Soft pastel" = "pastel", "Warm" = "warm", "Cool" = "cool", "Greys" = "grey", "Choose my own" = "custom"), selected = "brand"),
+          uiOutput("lca_custom_cols"),
+          checkboxInput("lca_show_values", "Show probabilities on the lines", FALSE)
         ),
-        mainPanel(
-          width = 10, 
-          h5(icon("project-diagram"), "Class Plot of the Best Model"),
-          downloadButton("download_plot_best_LCA", "Download Plot Best Model (.png)"),
-          tags$b("Item-Categories Probabilities Plot"),
-          ggiraph::girafeOutput("best_model_plot_lca", width = '100%', height = 'auto'),
-          h5(icon("table"), "Class Size and Item-Category Probabilities"),
-          tableOutput("summary_table_lca"),
-          h5(icon("table"), "Latent Class Response Patterns"),
-          DT::DTOutput("data_summary_lca_with_class"),
-          br(),
-          br(),
-          
+        pl_main(
+          width = 10,
+          tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", icon("project-diagram"), " Class plot of the best model"),
+                       ggiraph::girafeOutput("best_model_plot_lca", width = '100%', height = 'auto')),
+          tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", icon("table"), " Class size and item-category probabilities"),
+                       tableOutput("summary_table_lca")),
+          tags$section(class = "pl-flat", tags$h4(class = "pl-flat-title", icon("table"), " Latent class response patterns"),
+                       DT::DTOutput("data_summary_lca_with_class"))
         )
       )
     ),
-    
-    # --- TAB 4: Summary & Report ----
-    tabPanel(
-      title = tagList(icon("file-alt"), "Summary & Report"),
-      h4("Class Classification Data"),
-      DTOutput("profile_table_lca"),
-      h4("Compare Class"),
-      column(12,
-        column(3, uiOutput("var_x_ui")),
-        column(4, uiOutput("var_y_ui")),
-        column(2,
-               selectInput(
-                 "plot_type", "Plot Type:",
-                 choices = c("Line" = "line", "Bar" = "bar"),
-                 selected = "bar"
-               )
-        ),
-        column(3,
-               checkboxInput(
-                 "check_anova",
-                 label = "Compare Classes",
-                 value = FALSE
-               )
-        )
-      ),
-      br(),
 
-      column(12,
-        column(6, plotOutput("cross_latent", height = "420px")),
-        column(6, uiOutput("anova_lca_ui"))
-      ),
-      column(12, uiOutput("reg_lca_ui")),
-      column(12,
-             h4("Explore Other Variables by Class"),
-             checkboxInput(
-               "crosstab_result",
-               label = "Explore variable",
-               value = FALSE
-             ),
-             column(12, uiOutput("crosstab_ui")),
-             br(),
-             br(),
-             br()
-      )
-    ),
+    # --- Follow-up analyses: classification quality, comparisons, cross-tabs, predictors, export ----
+    followup_tabs("lca", "class"),
 
     # --- Report Preview ----
     tabPanel(
-      title = tagList(icon("file-alt"), "Report Preview"),
-      column(
-        12,
-        br(),
-        div(style = "display: flex; gap: 10px; margin-bottom: 15px;",
-            actionButton("lca_generate_preview", tagList(icon("sync"), " Generate Report Preview"), class = "btn btn-success"),
-            downloadButton("download_report_lca", "Download HTML Report", class = "btn btn-primary")
-        ),
-        div(
-          style = "border: 1px solid #ddd; border-radius: 4px; padding: 5px; background: #f9f9f9;",
-          uiOutput("lca_report_preview_frame")
-        )
-      )
+      title = tagList(icon("file-lines"), "Report"),
+      pl_report_tab("lca", "lca_generate_preview", "download_report_lca", "lca_report_preview_frame")
     ),
 
     # --- TAB 5: About ----
@@ -268,4 +214,5 @@ lca_ui <- function(project) {
       )
     )
   )
+  list(controls = NULL, nav = tabs$nav, stage = tabs$stage)
 }

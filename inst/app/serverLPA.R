@@ -1,5 +1,8 @@
 # ==== server_lpa.R ====
 server_lpa <- function(input, output, session, ai_context, console_context) {
+  # text typed (or drafted by the assistant) in the Report form
+  report_notes <- server_report_form(input, output, session, "lpa", ai_context, method_ctx = function() { req(fitcompare()); list(vars = input$selected_vars, k = input$best_k) })
+
   library(tidyLPA)
   library(mclust)
   library(ggplot2)
@@ -301,42 +304,42 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       formatStyle('AIC',
                   backgroundColor = styleEqual(
                     c(aic_vals[1], aic_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(aic_vals[1], 'bold')
       ) %>%
       formatStyle('BIC',
                   backgroundColor = styleEqual(
                     c(bic_vals[1], bic_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(bic_vals[1], 'bold')
       ) %>%
       formatStyle('Entropy',
-                  backgroundColor = styleInterval(c(0.7, 0.8), c('lightcoral', 'khaki', 'lightgreen')),
+                  backgroundColor = styleInterval(c(0.7, 0.8), c('#fbe0e3', '#fbefd2', '#d9f1ee')),
                   fontWeight      = styleInterval(c(0.7, 0.8), c('bold', 'bold',''))
       ) %>%
       formatStyle('prob_min',
                   backgroundColor = styleEqual(
                     c(prob_min_vals[1], prob_min_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(ent_vals[1], 'bold')
       ) %>%
       formatStyle('prob_max',
                   backgroundColor = styleEqual(
                     c(prob_max_vals[1], prob_max_vals[2]),
-                    c('lightgreen', 'khaki')
+                    c('#d9f1ee', '#fbefd2')
                   ),
                   fontWeight = styleEqual(ent_vals[1], 'bold')
       ) %>%
       formatStyle('n_min',
                   backgroundColor = styleInterval(
                     c(0.05, 0.07),
-                    c('lightcoral', 'khaki', 'lightgreen'))
+                    c('#fbe0e3', '#fbefd2', '#d9f1ee'))
                   ) %>%
       formatStyle('BLRT_p',
-                  backgroundColor = styleInterval(0.05, c('lightgreen', 'lightcoral')),
+                  backgroundColor = styleInterval(0.05, c('#d9f1ee', '#fbe0e3')),
                   fontWeight = styleInterval(0.05, c('bold', ''))
       )
   }, server = FALSE)
@@ -346,12 +349,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       dplyr::select(Model, n_profiles, BIC) %>%
       dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    ggplot(fit_bic, aes(n_profiles, BIC, group = Model, shape = Model, color = Model)) +
-      geom_line(size = 1.2, linetype = 4) + geom_point(size = 3) +
-      geom_text(aes(label = round(BIC, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
-      labs(subtitle  = "BIC Comparison Across Models", x = "Number of Profiles", y = "BIC") +
-      theme_minimal(base_size = 14) +
-      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+    pl_compare_plot(fit_bic, "n_profiles", "BIC", group = "Model", legend = "Model", title = "BIC", xlab = "Number of profiles", ylab = "BIC", palette = "purple")
   })
   fit_aic_reactive <- reactive({
     req(fitcompare())
@@ -359,12 +357,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       dplyr::select(Model, n_profiles, AIC) %>%
       dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    ggplot(fit_aic, aes(n_profiles, AIC, group = Model, shape = Model, color = Model)) +
-      geom_line(size = 1.2, linetype = 5) + geom_point(size = 3) +
-      geom_text(aes(label = round(AIC, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
-      labs(subtitle = "AIC Comparison Across Models", x = "Number of Profiles", y = "AIC") +
-      theme_minimal(base_size = 14) +
-      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+    pl_compare_plot(fit_aic, "n_profiles", "AIC", group = "Model", legend = "Model", title = "AIC", xlab = "Number of profiles", ylab = "AIC", palette = "teal")
   })
   fit_entropy_reactive <- reactive({
     req(fitcompare())
@@ -372,12 +365,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       dplyr::select(Model, n_profiles, Entropy) %>%
       dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    ggplot(fit_entropy, aes(n_profiles, Entropy, group = Model, shape = Model,color = Model)) +
-      geom_line(size = 1.2, linetype = 2) + geom_point(size = 3) +
-      geom_text(aes(label = round(Entropy, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
-      labs(subtitle = "Entropy Comparison Across Models", x = "Number of Profiles", y = "Entropy") +
-      theme_minimal(base_size = 14) +
-      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+    pl_compare_plot(fit_entropy, "n_profiles", "Entropy", group = "Model", legend = "Model", title = "Entropy", xlab = "Number of profiles", ylab = "Entropy", palette = "amber")
   })
   fit_class_size_reactive <- reactive({
     req(fitcompare())
@@ -385,12 +373,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       dplyr::select(Model, n_profiles, n_min) %>%
       dplyr::mutate(n_profiles = factor(n_profiles), Model = factor(Model))
     
-    ggplot(fit_class_size, aes(n_profiles, n_min, group = Model, shape = Model, color = Model)) +
-      geom_line(size = 1.2, linetype = 1) + geom_point(size = 4) +
-      geom_text(aes(label = round(n_min, 2)), vjust = -0.6, size = 4, show.legend = FALSE) +
-      labs(subtitle = "Min Class Size Comparison Across Models", x = "Number of Profiles", y = "Minimum Class Size") +
-      theme_minimal(base_size = 14) +
-      theme(legend.position = "bottom", axis.line = element_line(color = "black"))
+    pl_compare_plot(fit_class_size, "n_profiles", "n_min", group = "Model", legend = "Model", title = "Smallest profile size", xlab = "Number of profiles", ylab = "Minimum proportion", digits = 2, palette = "rose")
   })
   
   # ==== Render Plot ====
@@ -461,35 +444,32 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
                color = Profile,
                linetype = Profile,
                shape = Profile)) +
-      geom_line(linewidth = 1.2) +
-      geom_point(size = 3) +
+      geom_line(linewidth = 0.8) +
+      geom_point(size = 2.2, stroke = 0.7) +
       
       # === Error bar (Mean ± SE) ===
       geom_errorbar(
         aes(ymin = Mean - SE, ymax = Mean + SE),
-        width = 0.15,
-        linewidth = 0.8
+        width = 0.12,
+        linewidth = 0.45
       ) +
       
       geom_text(
         aes(label = round(Mean, 2)),
         vjust = -0.9,
-        size = 4,
+        size = 2.7,
         show.legend = FALSE
       ) +
-      
+      scale_colour_manual(values = pl_palettes$brand, name = NULL) +
+      scale_linetype_manual(values = c("solid", "22", "42", "13", "solid", "22"), name = NULL) +
+      scale_shape_manual(values = c(16, 15, 17, 18, 4, 3), name = NULL) +
       labs(
-        title = paste0("Profile Plot Based on Model Estimates (K = ", k, ")"),
-        x = "Indicator",
-        y = "Estimated Mean (± SE)"
+        title = paste0("Profile plot (K = ", k, ")"),
+        x = NULL,
+        y = "Estimated mean (± SE)"
       ) +
-      
-      theme_minimal(base_size = 14) +
-      theme(
-        legend.position = "bottom",
-        axis.line = element_line(color = "black"),
-        panel.grid.minor = element_blank()
-      )
+      theme_pl(11) +
+      theme(plot.title = element_text(size = 12, face = "bold"), plot.margin = margin(6, 10, 4, 8))
   })
   
   # RenderP lot
@@ -576,6 +556,19 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
     numeric_cols <- which(sapply(df_out, is.numeric))
     df
   })
+  # ---- follow-up analyses (classification quality, comparisons, cross-tabs, predictors, export) ----
+  lpa_assign <- reactive({
+    req(models(), input$best_k)
+    df <- df_out(); k <- as.numeric(input$best_k)
+    gd <- tidyLPA::get_data(models()[[as.character(k)]])
+    P <- as.matrix(gd[, paste0("CPROB", seq_len(k)), drop = FALSE])
+    if (nrow(P) != nrow(df)) {
+      idx <- stats::complete.cases(df[, input$selected_vars, drop = FALSE]); Pm <- matrix(NA_real_, nrow(df), k); Pm[idx, ] <- P; P <- Pm
+    }
+    list(data = df, cls = "Profile", post = P, skip = input$id_vars)
+  })
+  server_followup(input, output, session, "lpa", lpa_assign, "profile")
+
   # --- Data profil per ID ---
   output$profile_table <- renderDT({
     req(models(), input$best_k)
@@ -1112,10 +1105,9 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
   generate_lpa_report <- function(progress_label = "Generating Report...") {
     if (is.null(fitcompare())) return(NULL)
 
-    report_path <- file.path(system.file("app", package = "projectLSA"), "lpa_report.Rmd")
-    if (report_path == "" || !file.exists(report_path)) {
-      report_path <- "lpa_report.Rmd"
-    }
+    # The template that sits next to the app wins; an installed copy is only a fallback
+    report_path <- "lpa_report.Rmd"
+    if (!file.exists(report_path)) report_path <- file.path(system.file("app", package = "projectLSA"), "lpa_report.Rmd")
     tempReport <- file.path(lpa_report_res$path, "lpa_report.Rmd")
     file.copy(report_path, tempReport, overwrite = TRUE)
 
@@ -1136,6 +1128,7 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
           summary_tbl = tryCatch(summary_data(), error = function(e) NULL),
           selected_vars = input$selected_vars,
           console_out = console_context$text,
+          notes = report_notes(),
           ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text
         ),
         envir = new.env(parent = globalenv())
@@ -1177,5 +1170,27 @@ server_lpa <- function(input, output, session, ai_context, console_context) {
       file.copy(path, file, overwrite = TRUE)
     },
     contentType = "text/html"
+  )
+
+  output$download_word_lpa <- downloadHandler(
+    filename = function() paste0("LPA_Report_", Sys.Date(), ".docx"),
+    content = function(file) {
+      req(fitcompare())
+      withProgress(message = "Building the Word report", value = 0.4, {
+        plots <- list(BIC = fit_bic_reactive, AIC = fit_aic_reactive, Entropy = fit_entropy_reactive, `Smallest class size` = fit_class_size_reactive)
+        mono <- identical(input$fig_mode, "mono"); fx <- function(p) if (mono && inherits(p, "ggplot")) pl_mono(p) else p
+        plots <- lapply(plots, function(f) fx(tryCatch(f(), error = function(e) NULL)))
+        render_word_report("lpa_report_word.Rmd", list(
+          fit_compare = as.data.frame(fitcompare()), best_k = input$best_k,
+          profile_plot = fx(tryCatch(best_model_plot_reactive(), error = function(e) NULL)),
+          fit_plots = Filter(Negate(is.null), plots),
+          summary_tbl = tryCatch(summary_data(), error = function(e) NULL),
+          selected_vars = input$selected_vars, console_out = console_context$text, notes = report_notes(),
+          ai_summary = if (is.null(ai_context$ai_report_text)) "" else ai_context$ai_report_text,
+          dec = (input$dec_sep %||% ".")
+        ), file, file.path(lpa_report_res$path, "word"))
+      })
+    },
+    contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   )
 }

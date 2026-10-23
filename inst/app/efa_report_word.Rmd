@@ -1,0 +1,53 @@
+---
+output: word_document
+params:
+  helpers: ""
+  figdir: ""
+  dec: "."
+  efa_res: NA
+  console_out: NA
+  ai_summary: ""
+  notes: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+source(params$helpers)
+w_init(params$dec, params$figdir)
+nt <- params$notes
+res <- params$efa_res
+fa <- if (is.list(res)) res$fa else NULL
+```
+
+```{r body, results='asis'}
+w_cover(nt, "Exploratory Factor Analysis Report")
+w_notes(nt, c("objectives"))
+
+w_h("Method", 1)
+w_user(if (w_has(nt, "method")) nt$method else method_text("efa", list(fa = fa)))
+
+w_h("Results", 1)
+if (is.null(fa)) {
+  w_p("No EFA results are available.")
+} else {
+  L <- unclass(fa$loadings)
+  w_h("Factor Loadings", 2)
+  tab <- data.frame(Item = rownames(L), round(L, 3), check.names = FALSE, row.names = NULL)
+  if (!is.null(fa$communality)) tab[["h2"]] <- round(as.numeric(fa$communality[rownames(L)]), 3)
+  if (!is.null(fa$uniquenesses)) tab[["u2"]] <- round(as.numeric(fa$uniquenesses[rownames(L)]), 3)
+  w_table(tab, "Factor loadings, communalities and uniquenesses", digits = 3,
+          note = "h2 = communality; u2 = uniqueness. Loadings of .30 or higher are usually regarded as meaningful.")
+  va <- tryCatch(fa$Vaccounted, error = function(e) NULL)
+  if (!is.null(va)) {
+    vt <- data.frame(Statistic = rownames(va), round(as.data.frame(va), 3), check.names = FALSE, row.names = NULL)
+    w_table(vt, "Variance accounted for by the factors", digits = 3)
+  }
+  w_h("Factor Diagram", 2)
+  w_figure(function() psych::fa.diagram(fa), "Factor diagram of the EFA solution", width = 6.5, height = 5)
+}
+
+w_notes(nt, c("results"))
+w_ai(params$ai_summary)
+w_console(params$console_out)
+w_refs()
+```
